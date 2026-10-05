@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="家庭共享簿">
+<meta name="theme-color" content="#fbe9d7">
+<script>
+/* ===== 第 1 步：把 Firebase 網頁應用程式的設定貼在這裡 ===== */
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDFO7Rbx7lDhoV6wVh5pJMyx9o-Guzk-Tg",
+  authDomain: "family-book-70812.firebaseapp.com",
+  projectId: "family-book-70812",
+  storageBucket: "family-book-70812.firebasestorage.app",
+  messagingSenderId: "794695429716",
+  appId: "1:794695429716:web:aff8040d7e029aa05847c1"
+};
+/* ===== 以下不用改 ===== */
+window.FAMILY_SEED = {"foodFee": 5000, "members": [{"admin": false, "code": "0801", "key": "peng", "label": "爸爸", "name": "鵬", "perm": {"ledger": "edit", "meals": "edit"}}, {"admin": true, "code": "0913", "key": "yu", "label": "大女兒", "name": "妤", "perm": {"ledger": "edit", "meals": "edit"}, "settler": true}, {"admin": false, "code": "0717", "key": "hui", "label": "媽媽", "name": "惠", "perm": {"ledger": "edit", "meals": "edit"}, "settler": true}, {"admin": false, "code": "0403", "key": "rong", "label": "小女兒", "name": "蓉", "perm": {"ledger": "view", "meals": "view"}}, {"key": "nai", "label": "奶奶", "name": "奶", "noLogin": true}]};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function(){
+  var fs=null;
+  function configured(){var c=window.FIREBASE_CONFIG;return c&&c.apiKey&&c.apiKey.indexOf('請')!==0&&window.firebase}
+  window.claude={use:function(name){
+    if(name!=='db'||!configured())return Promise.resolve(null);
+    if(!fs){firebase.initializeApp(window.FIREBASE_CONFIG);fs=firebase.firestore();}
+    return Promise.resolve(fs);
+  }};
+})();
+</script>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>家庭共享簿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: one airy column; bright mint + sunshine palette, rounded "sticker" surfaces, pill tabs. */
+:root{
+  --bg:#fbe9d7; --surface:#fffaf4; --sunk:#f7e3cf; --line:#efd5bb;
+  --fg:#3a2f25; --muted:#86766a; --accent:#08a196; --accent-ink:#ffffff; --accent-soft:#d9f5f1;
+  --amber:#b97700; --amber-soft:#fff1c7; --sun:#ffc53d; --red:#e5524a; --red-soft:#ffe4e0; --blue:#2c78ef; --blue-soft:#e0ecff;
+  --p1:#3d8bfd; --p2:#ff6aa2; --p3:#ff9a1f; --p4:#8a6cf5; --p5:#2fb36a;
+  --shadow:0 6px 18px rgba(150,110,60,.10);
+  --f-display:"Huninn","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --r:18px;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:12px 100px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* header */
+.top{display:flex;align-items:center;gap:12px;padding-block:8px 14px}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.brand .logo{width:40px;height:40px;border-radius:14px;background:var(--sun);display:grid;place-items:center;flex:none;transform:rotate(-6deg);box-shadow:var(--shadow)}
+.top h1{font-size:26px;letter-spacing:.02em}
+.me{display:flex;align-items:center;gap:8px;background:var(--surface);border:0;border-radius:999px;padding:4px 14px 4px 4px;box-shadow:var(--shadow)}
+.av{width:34px;height:34px;border-radius:50%;display:inline-grid;place-items:center;font-family:var(--f-display);color:#fff;flex:none;font-size:17px;box-shadow:0 0 0 2px var(--surface)}
+.av.sm{width:26px;height:26px;font-size:14px}
+.av.lg{width:64px;height:64px;font-size:30px}
+.tabs{display:flex;gap:6px;background:var(--surface);padding:5px;border-radius:999px;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;box-shadow:var(--shadow)}
+.tabs button{flex:1;border:0;background:transparent;padding:9px 10px;border-radius:999px;color:var(--muted);font-weight:500;transition:background .2s,color .2s}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+
+.card{background:var(--surface);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spacer{flex:1}
+.btn{border:2px solid var(--line);background:var(--surface);padding:8px 16px;border-radius:999px;font-weight:500}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn.sunny{background:var(--sun);border-color:var(--sun);color:#3a2a00;font-weight:700}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.danger{color:var(--red);border-color:var(--red-soft)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.icon-btn{border:0;background:var(--surface);width:38px;height:38px;border-radius:50%;display:inline-grid;place-items:center;font-size:18px;box-shadow:var(--shadow)}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge-view{background:var(--sunk);color:var(--muted)}
+.notice{background:var(--amber-soft);color:var(--fg);border-radius:14px;padding:10px 14px;font-size:14px}
+
+/* month nav */
+.mnav{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.mnav .mid{flex:1;display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap}
+.mnav h2{font-size:24px;text-align:center}
+.mbadge{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 10px 2px 4px;font-size:13px;font-weight:700}
+
+/* summary */
+.total{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.total .big{font-size:32px;font-family:var(--f-display)}
+.cats{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.catrow{display:grid;grid-template-columns:72px 1fr 88px;gap:8px;align-items:center;font-size:13px}
+.bar{height:10px;border-radius:5px;background:var(--sunk);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:5px}
+.pcard{background:var(--sunk);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:3px;min-width:0;position:relative;border:2px solid transparent;transition:background .2s,border-color .2s}
+.pcard.paid{background:var(--accent-soft);border-color:var(--accent)}
+.pcard .nm{display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-size:17px;margin-bottom:6px}
+.kv{display:flex;justify-content:space-between;font-size:13px;gap:6px}
+.net.pos{color:var(--accent);font-weight:700}
+.net.neg{color:var(--red);font-weight:700}
+.paid-btn{display:flex;align-items:center;gap:8px;margin-top:10px;border:2px dashed var(--line);background:var(--surface);border-radius:12px;padding:8px 10px;font-weight:600;text-align:left}
+.paid-btn .box{width:22px;height:22px;border-radius:7px;border:2px solid var(--muted);display:grid;place-items:center;flex:none;background:var(--surface)}
+.paid-btn[aria-pressed="true"]{border-style:solid;border-color:var(--accent);color:var(--accent)}
+.paid-btn[aria-pressed="true"] .box{background:var(--accent);border-color:var(--accent)}
+.paid-btn:disabled{cursor:default;opacity:1}
+.paid-wait{margin-top:10px;border-radius:12px;padding:8px 10px;font-size:13px;color:var(--muted);background:var(--surface);text-align:center}
+.paid-btn[aria-pressed="false"]:not(:disabled){border-color:var(--sun);border-style:solid;background:var(--amber-soft)}
+.sticker{position:absolute;top:-10px;right:-6px;width:58px;height:58px;transform:rotate(12deg)}
+.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{0%{transform:scale(.3) rotate(-20deg);opacity:0}100%{transform:scale(1) rotate(12deg);opacity:1}}
+
+/* confirm */
+.confirm{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.confirm .txt{flex:1;min-width:180px}
+.confirm.done{background:linear-gradient(135deg,var(--accent-soft),var(--amber-soft))}
+.stamp{width:96px;height:96px;flex:none}
+.confirm.done h3{font-size:22px}
+
+/* list */
+.daygroup{display:flex;flex-direction:column;gap:8px}
+.dayhead{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;padding-inline:6px;margin-top:10px;font-weight:500}
+.exp{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;background:var(--surface);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow)}
+.exp .main{min-width:0}
+.exp .title{font-weight:700;overflow-wrap:anywhere}
+.exp .meta{font-size:12px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:3px}
+.exp .amt{text-align:right}
+.exp .amt b{font-size:17px}
+.exp .note{font-size:13px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.exp .acts{display:flex;gap:4px;justify-content:flex-end;margin-top:4px}
+.exp .acts button{border:0;background:transparent;color:var(--muted);font-size:12px;padding:2px 8px;border-radius:999px}
+.exp .acts button:hover{background:var(--sunk)}
+.c-food{background:var(--accent-soft);color:var(--accent)}
+.c-trip{background:var(--blue-soft);color:var(--blue)}
+.c-dine{background:var(--amber-soft);color:var(--amber)}
+.c-buy{background:var(--red-soft);color:var(--red)}
+.c-other{background:var(--sunk);color:var(--muted)}
+.empty{text-align:center;padding:28px 12px;color:var(--muted)}
+.empty b{display:block;font-family:var(--f-display);font-weight:400;font-size:19px;color:var(--fg);margin-bottom:4px}
+
+.fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:20;border:0;background:var(--sun);color:#3a2a00;border-radius:999px;padding:14px 22px;font-weight:700;box-shadow:0 8px 20px rgba(255,170,0,.35);font-size:16px}
+
+textarea,input[type=text],input[type=number],input[type=date],input[type=password],select{width:100%;background:var(--sunk);border:2px solid transparent;border-radius:12px;padding:9px 12px}
+textarea:focus,input:focus,select:focus{border-color:var(--accent);outline:none;background:var(--surface)}
+textarea{resize:vertical;min-height:64px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:380px){.grid2{grid-template-columns:1fr}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:2px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:14px;display:inline-flex;gap:6px;align-items:center;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.warn[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:#fff}
+.chip:disabled{cursor:default}
+.preview{background:var(--accent-soft);border-radius:14px;padding:10px 14px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px}
+.preview b{font-size:20px;font-family:var(--f-display);font-weight:400}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(60,40,20,.35);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:24px 24px 0 0;padding:22px 18px calc(22px + env(safe-area-inset-bottom,0px))}
+@media (min-width:640px){.scrim{align-items:center}.sheet{border-radius:24px}}
+.sheet h3{font-size:22px;margin-bottom:12px}
+
+/* meals */
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin-bottom:14px}
+.wd{border:0;background:var(--surface);border-radius:14px;padding:7px 2px;text-align:center;display:flex;flex-direction:column;gap:1px;align-items:center;min-width:0;box-shadow:var(--shadow)}
+.wd .w{font-size:11px;color:var(--muted)}
+.wd .md{font-family:var(--f-display);line-height:1.15;white-space:nowrap}
+.wd .md .m{font-size:11px;color:var(--muted)}
+.wd .md .d{font-size:19px}
+.wd .cnt{font-size:11px;line-height:1.35;color:var(--muted)}
+.wd .cnt b{color:var(--fg)}
+.wd[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.wd[aria-selected="true"] .w,.wd[aria-selected="true"] .m,.wd[aria-selected="true"] .cnt,.wd[aria-selected="true"] .cnt b{color:var(--accent-ink)}
+.wd.today:not([aria-selected="true"]){box-shadow:inset 0 0 0 2px var(--sun),var(--shadow)}
+.cook{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cook .k{border-radius:16px;padding:12px;text-align:center}
+.cook .k.bento{background:var(--amber-soft)}
+.cook .k.dinner{background:var(--accent-soft)}
+.cook .k b{display:block;font-size:34px;font-family:var(--f-display);font-weight:400;line-height:1.1}
+.mperson{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+.mperson .who{display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--f-display);width:52px}
+.mperson .who small{font-family:var(--f-body);font-size:11px;color:var(--muted)}
+.mbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mbtn{display:flex;align-items:center;gap:10px;border:2px solid transparent;border-radius:16px;padding:10px 12px;text-align:left;transition:background .15s,transform .1s}
+.mbtn:active{transform:scale(.97)}
+.mbtn .ic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:18px;flex:none;background:var(--surface)}
+.mbtn b{display:block;font-size:16px;line-height:1.2}
+.mbtn small{font-size:11px;color:var(--muted)}
+.mbtn.bento{background:var(--amber-soft);border-color:var(--sun)}
+.mbtn.dinner{background:var(--accent-soft);border-color:var(--accent)}
+.mbtn.late{background:var(--blue-soft);border-color:var(--blue)}
+.mbtn.late b{color:var(--blue)}
+.mbtn.fruitbtn{background:var(--surface);border:2px dashed var(--line);color:var(--muted)}
+.mbtn.fruitbtn.on{background:var(--red-soft);border:2px solid var(--red);color:var(--fg)}
+.cook .k.fruit{background:var(--red-soft)}
+.mbtn.off{background:var(--sunk);border:2px dashed var(--line);color:var(--muted)}
+.mbtn.off b{color:var(--red)}
+.mbtn.off .ic{color:var(--red);font-weight:700}
+.mbtn:disabled{cursor:default}
+.mnote{margin-top:4px}
+.mgrid-card{padding:12px 6px}
+.mgrid-wrap{overflow-x:auto}
+.mgrid{width:100%;border-collapse:separate;border-spacing:2px;table-layout:fixed;min-width:300px}
+.mgrid th,.mgrid td{padding:0;text-align:center;vertical-align:middle}
+.mgrid .corner,.mgrid .pcol{width:44px}
+.mgrid .pcol{display:table-cell;font-family:var(--f-display);font-weight:400;font-size:12px;line-height:1.2;padding:4px 0}
+.mgrid .pcol .av{display:block;margin:0 auto 2px}
+.mgrid .pcol.tot{font-family:var(--f-body);color:var(--muted);font-size:12px}
+.dhead{border:0;background:transparent;width:100%;padding:4px 0;border-radius:10px;display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.dhead .w{font-size:11px;color:var(--muted)}
+.dhead .md{font-family:var(--f-display);font-size:13px;white-space:nowrap}
+th.sel .dhead{background:var(--accent);color:var(--accent-ink)}
+th.sel .dhead .w{color:var(--accent-ink)}
+th.th-today:not(.sel) .dhead{box-shadow:inset 0 0 0 2px var(--sun)}
+.cellbtn{position:relative;width:100%;min-height:50px;border:0;border-radius:10px;background:var(--sunk);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 1px}
+.cellbtn:disabled{cursor:default}
+td.sel .cellbtn{box-shadow:inset 0 0 0 2px var(--accent)}
+.cellbtn .ok{color:var(--line);font-size:18px;line-height:1}
+.mk{font-style:normal;display:inline-block;font-size:11px;font-weight:700;padding:1px 3px;border-radius:6px;line-height:1.35;white-space:nowrap}
+.k-nb{background:var(--amber-soft);color:var(--amber);box-shadow:inset 0 0 0 1px var(--sun)}
+.k-out{background:var(--red-soft);color:var(--red)}
+.k-late{background:var(--blue-soft);color:var(--blue)}
+.k-fr{background:transparent;padding:0;font-size:12px}
+.nd{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--p4)}
+td.tot{font-size:14px;padding:2px 0}
+td.tot.sel{color:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px;padding-inline:4px}
+.legend > span{display:inline-flex;align-items:center;gap:4px}
+.exrow{display:flex;align-items:center;gap:12px;padding:12px 14px;flex-wrap:wrap}
+.exacts{display:flex;gap:4px;margin-left:auto}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
+.t-nb{background:var(--amber-soft);color:var(--amber)}
+.t-out{background:var(--red-soft);color:var(--red)}
+.t-late{background:var(--blue-soft);color:var(--blue)}
+.t-fruit{background:var(--accent-soft);color:var(--accent)}
+.exdot{display:inline-block;background:var(--red-soft);color:var(--red);border-radius:999px;padding:0 6px;font-weight:700;white-space:nowrap}
+.wd[aria-selected="true"] .exdot{background:var(--surface);color:var(--red)}
+.chip.big{padding:9px 14px;font-size:15px}
+.btn.small{padding:5px 12px;font-size:13px}
+.mnote input{padding:6px 10px;font-size:13px}
+
+/* settings */
+.mtable{width:100%;border-collapse:collapse;font-size:14px}
+.mtable th,.mtable td{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.mtable th{font-weight:500;color:var(--muted);font-size:12px;white-space:nowrap}
+.tablewrap{overflow-x:auto}
+.toggle{display:inline-flex;background:var(--sunk);border-radius:999px;padding:3px}
+.toggle button{border:0;background:transparent;padding:4px 10px;border-radius:999px;font-size:12px;color:var(--muted);white-space:nowrap}
+.toggle button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.toggle button:disabled{cursor:default}
+.pin-in{width:76px!important;padding:4px 8px!important;text-align:center;letter-spacing:.2em}
+
+/* login */
+.login{max-width:420px;margin:24px auto;display:flex;flex-direction:column;gap:20px;align-items:stretch}
+.login h1{font-size:32px;text-align:center}
+.who-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.who-btn{border:0;background:var(--surface);border-radius:18px;padding:12px 4px;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:var(--f-display);font-size:17px;box-shadow:var(--shadow)}
+.who-btn small{font-family:var(--f-body);font-size:12px;color:var(--muted)}
+.who-btn[aria-pressed="true"]{box-shadow:0 0 0 3px var(--accent),var(--shadow)}
+.dots{display:flex;justify-content:center;gap:14px}
+.dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);background:var(--surface)}
+.dots i.on{background:var(--sun);border-color:var(--sun)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pad button{border:0;background:var(--surface);border-radius:18px;padding:14px 0;font-size:22px;font-variant-numeric:tabular-nums;box-shadow:var(--shadow)}
+.pad button:active{background:var(--accent-soft)}
+.pad button.fn{font-size:14px;color:var(--muted)}
+.err{color:var(--red);text-align:center;min-height:1.5em;font-size:14px}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@media (prefers-reduced-motion:reduce){.shake,.pop{animation:none}}
+.note-item{display:flex;gap:12px;align-items:center;border-radius:16px;padding:12px;background:var(--sunk)}
+.note-item.conf{background:linear-gradient(135deg,var(--accent-soft),var(--amber-soft))}
+.note-item.paid{background:var(--accent-soft)}
+.nicon{flex:none;display:grid;place-items:center}
+.bell{font-size:24px;display:inline-block;animation:ring 1s ease 2}
+@keyframes ring{0%,100%{transform:rotate(0)}20%{transform:rotate(18deg)}40%{transform:rotate(-14deg)}60%{transform:rotate(8deg)}}
+@media (prefers-reduced-motion:reduce){.bell{animation:none}}
+.lineprev{white-space:pre-wrap;background:var(--sunk);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.6;overflow-wrap:anywhere;user-select:text}
+.linebtn{display:block;text-align:center;text-decoration:none;background:#06c755;border-color:#06c755;color:#fff;font-weight:700;padding:12px 16px;font-size:16px}
+.linesm{background:#06c755;border-color:#06c755;color:#fff;font-weight:700}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 18px;border-radius:999px;font-size:14px;z-index:60}
+</style>
+
+<div class="wrap" id="app">
+  <div class="login"><h1>家庭共享簿</h1><p class="muted" style="text-align:center">正在連線家裡的資料…</p></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(function(){
+const $app = document.getElementById('app');
+const CATS = [
+  {k:'trip', n:'旅遊', c:'c-trip', col:'var(--blue)'},
+  {k:'dine', n:'吃飯', c:'c-dine', col:'var(--amber)'},
+  {k:'buy',  n:'代付款', c:'c-buy', col:'var(--red)'},
+  {k:'other',n:'其他', c:'c-other', col:'var(--muted)'}
+];
+const COLORS = ['var(--p1)','var(--p2)','var(--p3)','var(--p4)','var(--p5)'];
+const DAUGHTERS = ['yu','rong'];
+const WD = ['日','一','二','三','四','五','六'];
+
+const S = {
+  db:null, ready:false, platformRO:false,
+  members:null, configExists:null,
+  me: lsGet('fam_me'),
+  tab: lsGet('fam_tab') || 'ledger',
+  month: ymOf(new Date()),
+  weekStart: mondayOf(new Date()),
+  day: ymd(new Date()),
+  expenses:[], monthNote:'', monthNoteLoaded:false,
+  meals:{},
+  login:{who:null, pin:''},
+  sheet:null
+};
+let unsubExp=null, unsubNote=null, unsubMeals=null, unsubSet=null;
+
+/* ---------- utils ---------- */
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function pad2(n){return String(n).padStart(2,'0')}
+function ymd(d){return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
+function ymOf(d){return d.getFullYear()+'-'+pad2(d.getMonth()+1)}
+function parseYmd(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
+function mondayOf(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);return ymd(x)}
+function addDays(s,n){const d=parseYmd(s);d.setDate(d.getDate()+n);return ymd(d)}
+function addMonths(ym,n){const [y,m]=ym.split('-').map(Number);return ymOf(new Date(y,m-1+n,1))}
+function money(n){return 'NT$'+Number(n||0).toLocaleString('zh-TW',{maximumFractionDigits:1})}
+function nfmt(n){return Number(n||0).toLocaleString('zh-TW',{maximumFractionDigits:1})}
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,1800)}
+function mem(k){return (S.members||[]).find(m=>m.key===k)}
+function memIdx(k){return (S.members||[]).findIndex(m=>m.key===k)}
+function av(k,cls=''){const m=mem(k);const i=memIdx(k);return `<span class="av ${cls}" style="background:${COLORS[(i<0?0:i)%COLORS.length]}">${esc(m?m.name:'?')}</span>`}
+function meM(){return mem(S.me)}
+function people(){return (S.members||[]).filter(m=>!m.noLogin)}
+function foodFee(){return Number(S.foodFee)||0}
+function canSettle(){if(S.platformRO)return false;const m=meM();return !!(m&&(m.admin||m.settler))}
+function seenSet(){try{return new Set(JSON.parse(lsGet('fam_seen_'+S.me)||'[]'))}catch(e){return new Set()}}
+function pendingNotes(){
+  if(!S.me||!S.allSettle)return [];
+  const seen=seenSet(); const out=[]; const cutoff=Date.now()-60*864e5;
+  Object.keys(S.allSettle).forEach(mk=>{
+    const x=S.allSettle[mk]||{}; const mo=Number(mk.split('-')[1]);
+    if(x.confirmed&&x.confirmedAt>cutoff&&x.confirmedBy!==S.me){
+      const id='c:'+mk+':'+x.confirmedAt; const by=mem(x.confirmedBy);
+      if(!seen.has(id))out.push({id,at:x.confirmedAt,kind:'conf',title:mo+' 月帳款已結算',text:(by?by.label+' 確認了帳款沒問題':'帳款已確認')+(DAUGHTERS.includes(S.me)?'，可以去付款並按「確認後按這裡」了':''),month:mk});
+    }
+    const pa=x.paidAt||{}, pb=x.paidBy||{};
+    Object.keys(x.paid||{}).forEach(k=>{
+      if(!x.paid[k]||!pa[k]||pa[k]<cutoff||pb[k]===S.me)return;
+      const id='p:'+mk+':'+k+':'+pa[k]; const m=mem(k);
+      if(!seen.has(id))out.push({id,at:pa[k],kind:'paid',title:(m?m.label:'')+' 已確認',text:mo+' 月的款項已付清',who:k,month:mk});
+    });
+  });
+  return out.sort((a,b)=>b.at-a.at);
+}
+function markSeen(ids){const s=seenSet();ids.forEach(i=>s.add(i));lsSet('fam_seen_'+S.me,JSON.stringify([...s].slice(-200)))}
+function canPay(k){if(canSettle())return true;const m=mem(k);return !S.platformRO&&S.me===k&&!!(m&&m.payConfirm!==false)}
+function settlers(){return people().filter(m=>m.settler).map(m=>m.label)}
+const LOGO='<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7" fill="none" stroke="#3a2a00" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v9.5h12V10" fill="none" stroke="#3a2a00" stroke-width="2.4" stroke-linejoin="round"/><path d="M12 17.2s-3-1.8-3-3.6a1.6 1.6 0 0 1 3-.8 1.6 1.6 0 0 1 3 .8c0 1.8-3 3.6-3 3.6z" fill="#ff6aa2"/></svg>';
+function starPts(cx,cy,R,r,n){const a=[];for(let i=0;i<n*2;i++){const ang=Math.PI*i/n-Math.PI/2;const rad=i%2?r:R;a.push((cx+rad*Math.cos(ang)).toFixed(1)+','+(cy+rad*Math.sin(ang)).toFixed(1))}return a.join(' ')}
+function stickerSvg(pop){return `<svg class="sticker${pop?' pop':''}" viewBox="0 0 60 60" aria-hidden="true"><polygon points="${starPts(30,30,29,24,12)}" style="fill:var(--sun)"/><circle cx="30" cy="30" r="20" style="fill:var(--sun)" stroke="#fff" stroke-width="2" stroke-dasharray="3 3"/><path d="M20 30.5l6.5 6.5L41 23" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`}
+function stampSvg(){return `<svg class="stamp" viewBox="0 0 100 100" role="img" aria-label="本月已結算"><g transform="rotate(-10 50 50)"><circle cx="50" cy="50" r="44" style="fill:var(--surface)"/><circle cx="50" cy="50" r="44" fill="none" style="stroke:var(--red)" stroke-width="4"/><circle cx="50" cy="50" r="37" fill="none" style="stroke:var(--red)" stroke-width="1.6" stroke-dasharray="4 4"/><circle cx="38" cy="40" r="3.6" style="fill:var(--fg)"/><circle cx="62" cy="40" r="3.6" style="fill:var(--fg)"/><ellipse cx="31" cy="50" rx="5" ry="3" style="fill:var(--p2)" opacity=".55"/><ellipse cx="69" cy="50" rx="5" ry="3" style="fill:var(--p2)" opacity=".55"/><path d="M40 50q10 9 20 0" fill="none" style="stroke:var(--fg)" stroke-width="3.2" stroke-linecap="round"/><text x="50" y="76" text-anchor="middle" font-size="15" style="fill:var(--red);font-family:var(--f-display)">已結算</text></g><path d="M88 12l2.2 5 5 2.2-5 2.2-2.2 5-2.2-5-5-2.2 5-2.2z" style="fill:var(--sun)"/><path d="M10 78l1.6 3.6 3.6 1.6-3.6 1.6-1.6 3.6-1.6-3.6-3.6-1.6 3.6-1.6z" style="fill:var(--accent)"/></svg>`}
+const SMILE='<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" style="fill:var(--accent)"/><circle cx="7" cy="8" r="1.4" fill="#fff"/><circle cx="13" cy="8" r="1.4" fill="#fff"/><path d="M6.5 11.5q3.5 3.5 7 0" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>';
+function isAdmin(){const m=meM();return !!(m&&m.admin)}
+function canEditPage(p){if(S.platformRO)return false;const m=meM();if(!m)return false;if(m.admin)return true;return (m.perm&&m.perm[p])==='edit'}
+function dbErr(e){const c=e&&e.code;if(c==='quota_exceeded')return '資料已滿，請刪除一些舊紀錄後再試';if(c==='permission-denied')return '資料庫拒絕寫入，請確認 Firebase 安全規則已發布';return '暫時無法儲存，請稍後再試'}
+
+/* ---------- data ---------- */
+async function boot(){
+  const claude = window.claude;
+  let db=null;
+  try{ db = claude && claude.use ? await claude.use('db') : null }catch(e){db=null}
+  S.db=db;
+  if(!db){S.ready=true;render();return}
+  try{
+    const user = await claude.use('user');
+    if(user){const w=await user.can('data.write'); if(w===false) S.platformRO=true;}
+  }catch(e){}
+  db.doc('config/family').onSnapshot(snap=>{
+    if(!snap.exists&&window.FAMILY_SEED&&!S._seeded){S._seeded=true;db.doc('config/family').set(window.FAMILY_SEED).catch(()=>{});return}
+    S.configExists=snap.exists;
+    const d=snap.exists?snap.data():null;
+    S.members = d && Array.isArray(d.members)? d.members : [];
+    S.foodFee = d && d.foodFee!=null ? d.foodFee : 5000;
+    if(S.me && (!mem(S.me)||mem(S.me).noLogin)){S.me=null;lsSet('fam_me',null)}
+    S.ready=true; render();
+  },()=>{S.ready=true;render()});
+  db.collection('settlements').onSnapshot(snap=>{const a={};snap.docs.forEach(d=>{a[d.id]=d.data()});S.allSettle=a;renderIfNot()},()=>{});
+  subMonth(); subWeek();
+}
+function subMonth(){
+  if(!S.db)return;
+  unsubExp&&unsubExp(); unsubNote&&unsubNote(); unsubSet&&unsubSet();
+  S.expenses=[]; S.monthNoteLoaded=false; S.monthNote=''; S.settle={}; S.popKey=null;
+  unsubSet = S.db.doc('settlements/'+S.month).onSnapshot(snap=>{S.settle=snap.exists?snap.data():{};renderIfNot()},()=>{});
+  unsubExp = S.db.collection('expenses').where('month','==',S.month).onSnapshot(snap=>{
+    S.expenses = snap.docs.map(d=>Object.assign({id:d.id},d.data()));
+    S.expenses.sort((a,b)=> (b.date||'').localeCompare(a.date||'') || (b.at||0)-(a.at||0));
+    renderIfNot('ledgerNote');
+  },()=>{});
+  unsubNote = S.db.doc('monthnotes/'+S.month).onSnapshot(snap=>{
+    S.monthNote = snap.exists ? (snap.data().note||'') : '';
+    S.monthNoteLoaded=true;
+    const ta=document.getElementById('month-note');
+    if(ta && document.activeElement!==ta){ta.value=S.monthNote}
+    else if(!ta) renderIfNot();
+  },()=>{});
+}
+function subWeek(){
+  if(!S.db)return;
+  unsubMeals&&unsubMeals();
+  S.meals={};
+  const end=addDays(S.weekStart,6);
+  unsubMeals = S.db.collection('meals').where('date','>=',S.weekStart).where('date','<=',end).onSnapshot(snap=>{
+    const m={}; snap.docs.forEach(d=>{const x=d.data(); m[x.date+'_'+x.member]=x});
+    S.meals=m; renderIfNot('mealnote');
+  },()=>{});
+}
+// avoid wiping a field the user is typing in
+function renderIfNot(){
+  const a=document.activeElement;
+  if(a && a.dataset && a.dataset.keep){ return }
+  render();
+}
+
+/* ---------- render ---------- */
+function render(){
+  if(!S.ready){return}
+  if(!S.db){ $app.innerHTML = `<div class="login"><h1>家庭共享簿</h1><div class="card stack"><b>還沒有連上資料庫</b><p class="muted small" style="margin:0">請打開 index.html，把 Firebase 的設定貼到最上面的 FIREBASE_CONFIG 裡，再重新上傳。</p></div></div>`; return }
+  if(!S.members || !S.members.length){ $app.innerHTML = `<div class="login"><h1>家庭共享簿</h1><div class="card stack"><b>還沒有設定家庭成員</b><p class="muted small" style="margin:0">請 Claude 幫忙建立成員名單後再開啟。</p></div></div>`; return }
+  if(!S.me){ renderLogin(); return }
+  const m=meM();
+  const tabs=[['ledger','家庭記帳'],['meals','在家吃飯']]; if(m.admin) tabs.push(['settings','成員權限']);
+  if(!tabs.find(t=>t[0]===S.tab)) S.tab='ledger';
+  $app.innerHTML = `
+    <div class="top">
+      <div class="brand"><span class="logo">${LOGO}</span><h1>家庭共享簿</h1></div>
+      <button class="me" data-act="menu" aria-label="帳號">${av(m.key,'sm')}<span>${esc(m.label)}</span></button>
+    </div>
+    <div class="tabs" role="tablist">${tabs.map(t=>`<button role="tab" data-tab="${t[0]}" aria-selected="${S.tab===t[0]}">${t[1]}</button>`).join('')}</div>
+    ${S.platformRO?'<div class="notice" style="margin-bottom:12px">目前無法儲存資料，請確認 Firebase 的安全規則已經發布。</div>':''}
+    <div id="view">${S.tab==='ledger'?viewLedger():S.tab==='meals'?viewMeals():viewSettings()}</div>
+    ${S.tab==='ledger'&&canEditPage('ledger')?'<button class="fab" data-act="add-exp">＋ 記一筆</button>':''}
+    ${S.tab==='meals'&&canEditPage('meals')?'<button class="fab" data-act="add-meal">＋ 登記</button>':''}
+  `;
+  if(!S.sheet){const n=pendingNotes();if(n.length){S.sheet={type:'notes',items:n}}}
+  if(S.sheet) renderSheet();
+}
+
+function renderLogin(){
+  const L=S.login; const who=L.who?mem(L.who):null;
+  $app.innerHTML = `
+  <div class="login">
+    <div class="stack" style="align-items:center;gap:6px">
+      <span class="logo" style="width:56px;height:56px;border-radius:18px;background:var(--sun);display:grid;place-items:center;transform:rotate(-6deg)">${LOGO}</span>
+      <h1>家庭共享簿</h1>
+      <p class="muted" style="margin:0">先選你是誰，再輸入密碼</p>
+    </div>
+    <div class="who-grid">${people().map(m=>`<button class="who-btn" data-who="${esc(m.key)}" aria-pressed="${L.who===m.key}">${av(m.key)}<span>${esc(m.name)}</span><small>${esc(m.label)}</small></button>`).join('')}</div>
+    ${who?`
+      <div class="dots" id="dots">${[0,1,2,3].map(i=>`<i class="${i<L.pin.length?'on':''}"></i>`).join('')}</div>
+      <div class="err" id="err" aria-live="polite">${esc(L.err||'')}</div>
+      <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-pin="${n}">${n}</button>`).join('')}<button class="fn" data-pin="clr">清除</button><button data-pin="0">0</button><button class="fn" data-pin="del">刪除</button></div>
+      <p class="muted small" style="text-align:center;margin:0">登入後會一直保持登入，不會自動登出</p>
+    `:''}
+  </div>`;
+}
+function pinPress(v){
+  const L=S.login; if(!L.who)return;
+  if(v==='clr')L.pin=''; else if(v==='del')L.pin=L.pin.slice(0,-1); else if(L.pin.length<4)L.pin+=v;
+  if(L.pin.length===4){
+    const m=mem(L.who);
+    if(m && !m.noLogin && String(m.code)===L.pin){S.me=m.key;lsSet('fam_me',m.key);S.login={who:null,pin:''};render();toast(m.label+'，歡迎回來');return}
+    L.pin=''; L.err='密碼不對，再試一次'; renderLogin();
+    const d=document.getElementById('dots'); d&&d.classList.add('shake'); return;
+  }
+  L.err=''; renderLogin();
+}
+
+/* ---------- ledger ---------- */
+function settle(list){
+  let total=0; const byCat={};
+  const D={}; DAUGHTERS.filter(k=>mem(k)).forEach(k=>D[k]={credit:0,owed:0});
+  list.forEach(e=>{
+    const t=Number(e.total)||0; total+=t; byCat[e.cat]=(byCat[e.cat]||0)+t;
+    const parts=(e.parts||[]).filter(k=>mem(k));
+    if(!parts.length)return;
+    const share=t/Math.max(1,Number(e.divisor)||1);
+    if(D[e.payer]) D[e.payer].credit+=share*parts.filter(k=>k!==e.payer).length;
+    parts.forEach(k=>{if(D[k]&&k!==e.payer)D[k].owed+=share});
+  });
+  const fee=foodFee();
+  Object.keys(D).forEach(k=>{const x=D[k];x.fee=fee;x.net=Math.round((x.credit-x.owed-fee)*10)/10});
+  return {total,byCat,D};
+}
+function viewLedger(){
+  const [y,mo]=S.month.split('-');
+  const st=settle(S.expenses); const canE=canEditPage('ledger');
+  const maxCat=Math.max(1,...Object.values(st.byCat));
+  const groups={}; S.expenses.forEach(e=>{(groups[e.date]=groups[e.date]||[]).push(e)});
+  const dates=Object.keys(groups).sort().reverse();
+  const fee=foodFee(); const SS=S.settle||{}; const paid=SS.paid||{}; const done=!!SS.confirmed; const canS=canSettle();
+  const cb=SS.confirmedBy?mem(SS.confirmedBy):null; const cAt=SS.confirmedAt?new Date(SS.confirmedAt):null;
+  const dk=Object.keys(st.D); const allPaid=dk.length&&dk.every(k=>paid[k]);
+  const who=settlers();
+  return `
+  <div class="mnav">
+    <button class="icon-btn" data-act="month" data-d="-1" aria-label="上個月">‹</button>
+    <div class="mid"><h2>${y} 年 ${Number(mo)} 月</h2>${done?`<span class="mbadge">${SMILE}已結算</span>`:''}</div>
+    <button class="icon-btn" data-act="month" data-d="1" aria-label="下個月">›</button>
+  </div>
+  ${canE?'':`<div class="notice" style="margin-bottom:12px">記帳頁目前為「僅閱覽」，可以看帳但不能新增或修改。${DAUGHTERS.includes(S.me)&&canPay(S.me)?'月底確認後，仍可以按自己的「確認後按這裡」。':''}</div>`}
+  <div class="stack">
+    <section class="card stack">
+      <div class="row"><h3 style="font-size:20px">月底清算</h3><span class="spacer"></span><span class="muted small">伙食費每人每月 ${money(fee)}</span></div>
+      <div class="grid2">${dk.map(k=>{const x=st.D[k];const n=x.net;const pd=!!paid[k];return `<div class="pcard ${pd?'paid':''}">${pd?stickerSvg(S.popKey===k):''}<div class="nm">${av(k,'sm')}${esc(mem(k).label)}</div>
+        <div class="kv"><span class="muted">伙食費</span><span class="num">${nfmt(x.fee)}</span></div>
+        <div class="kv"><span class="muted">＋ 該分攤</span><span class="num">${nfmt(x.owed)}</span></div>
+        <div class="kv"><span class="muted">− 幫家裡先付</span><span class="num">${nfmt(x.credit)}</span></div>
+        <div class="kv" style="border-top:1px dashed var(--line);padding-top:6px;margin-top:4px"><span>${n<-0.5?'要給家裡':n>0.5?'家裡要給她':'剛好打平'}</span><b class="num net ${n<-0.5?'neg':n>0.5?'pos':''}">${Math.abs(n)>0.5?money(Math.abs(n)):'—'}</b></div>
+        ${!done?`<div class="paid-wait">等月底確認帳款後即可確認</div>`:`<button class="paid-btn" data-paid="${esc(k)}" aria-pressed="${pd}" ${canPay(k)?'':'disabled'}><span class="box">${pd?'<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</span>${pd?'已確認':'確認後按這裡'}</button>`}
+      </div>`}).join('')}</div>
+    </section>
+
+    <section class="card stack">
+      <div class="total"><span class="muted">本月記帳合計</span><span class="big num">${money(st.total)}</span><span class="muted small">${S.expenses.length} 筆</span></div>
+      ${st.total?`<div class="cats">${CATS.filter(c=>st.byCat[c.k]).map(c=>`<div class="catrow"><span>${c.n}</span><span class="bar"><i style="width:${st.byCat[c.k]/maxCat*100}%;background:${c.col}"></i></span><span class="num" style="text-align:right">${money(st.byCat[c.k])}</span></div>`).join('')}</div>`:''}
+    </section>
+
+    <section class="card stack">
+      <label class="f" for="month-note"><span>本月備註</span>
+        <textarea id="month-note" data-keep="1" placeholder="例如：小女兒這個月伙食費下個月一起給" ${canE?'':'readonly'}>${esc(S.monthNote)}</textarea></label>
+      ${canE?'<div class="row"><span class="spacer"></span><button class="btn" data-act="save-mnote">儲存備註</button></div>':''}
+    </section>
+
+    ${done?`<section class="card confirm done">${stampSvg()}<div class="txt stack" style="gap:4px"><h3>${Number(mo)} 月帳款已確認結算</h3>
+        <span class="small">${cb?esc(cb.label)+' 於 ':''}${cAt?(cAt.getMonth()+1)+'/'+cAt.getDate()+' ':''}確認帳款沒問題${allPaid?'，兩位女兒都付清了':''}</span>
+        <div class="row" style="gap:6px"><button class="btn small linesm" data-act="line-confirm">傳到 LINE</button>${canS?'<button class="btn ghost small" data-act="unconfirm">取消確認</button>':''}</div></div></section>`
+    :`<section class="card confirm"><div class="txt stack" style="gap:4px"><h3 style="font-size:19px">月底確認帳款</h3>
+        <span class="muted small">${canS?'下面的明細都核對過、沒問題了，就按確認。確認後兩位女兒就可以付款。':'由'+(who.length?who.map(esc).join('、'):'管理者')+'核對後確認。'}</span></div>
+        ${canS?'<button class="btn sunny" data-act="confirm">確認帳款沒問題</button>':''}</section>`}
+
+    <section class="stack" style="gap:4px">
+      <h3 style="font-size:18px;padding-inline:4px">明細</h3>
+      ${dates.length?dates.map(d=>{const dt=parseYmd(d);const sum=groups[d].reduce((a,e)=>a+(Number(e.total)||0),0);return `<div class="daygroup"><div class="dayhead"><span>${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）</span><span class="num">${money(sum)}</span></div>${groups[d].map(e=>expRow(e,canE)).join('')}</div>`}).join('')
+        :`<div class="card empty"><b>這個月還沒有紀錄</b>${canE?'按右下角「記一筆」新增第一筆開銷':'有人登記後就會出現在這裡'}</div>`}
+    </section>
+  </div>`;
+}
+function expRow(e,canE){
+  const c=CATS.find(x=>x.k===e.cat)||CATS[CATS.length-1]; const m=mem(e.payer);
+  const div=Math.max(1,Number(e.divisor)||1); const parts=(e.parts||[]).filter(k=>mem(k));
+  return `<div class="exp">${av(e.payer)}
+    <div class="main"><div class="title">${esc(e.item||c.n)}</div>
+      <div class="meta"><span class="pill ${c.c}">${c.n}</span><span>${esc(m?m.label:'')} 先付</span></div>
+      ${parts.length?`<div class="meta"><span>分攤：</span>${parts.map(k=>av(k,'sm')).join('')}${div!==parts.length?`<span>（共 ${div} 份）</span>`:''}</div>`:''}
+      ${e.note?`<div class="note">📝 ${esc(e.note)}</div>`:''}
+    </div>
+    <div class="amt"><b class="num">${money(e.total)}</b>${div>1?`<div class="small muted num">÷${div}＝每份 ${nfmt((Number(e.total)||0)/div)}</div>`:''}
+      ${canE?`<div class="acts"><button data-act="edit-exp" data-id="${esc(e.id)}">編輯</button><button data-act="del-exp" data-id="${esc(e.id)}">刪除</button></div>`:''}</div>
+  </div>`;
+}
+
+/* ---------- expense sheet ---------- */
+function openExp(id){
+  const e=id?S.expenses.find(x=>x.id===id):null;
+  const allKeys=people().map(m=>m.key);
+  S.sheet={type:'exp',id:id||null,
+    date:e?e.date:(S.month===ymOf(new Date())?ymd(new Date()):S.month+'-01'),
+    cat:e?(CATS.find(c=>c.k===e.cat)?e.cat:'other'):'dine', item:e?e.item:'', payer:e?e.payer:S.me,
+    price:e?String(e.total):'',
+    parts:e?(e.parts||[]).slice():allKeys.slice(),
+    divisor:e?String(e.divisor||1):String(allKeys.length), divManual:e?true:false,
+    note:e?(e.note||''):''};
+  renderSheet();
+}
+function sheetTotal(s){return Math.round((parseFloat(s.price)||0)*100)/100}
+function renderSheet(){
+  let host=document.getElementById('sheet-host');
+  if(!S.sheet){host&&host.remove();return}
+  if(!host){host=document.createElement('div');host.id='sheet-host';document.body.appendChild(host)}
+  const s=S.sheet;
+  if(s.type==='menu'){
+    const m=meM();
+    host.innerHTML=`<div class="scrim" data-act="close-sheet"><div class="sheet stack" role="dialog" aria-label="帳號">
+      <div class="row">${av(m.key,'lg')}<div><h3 style="margin:0">${esc(m.label)}（${esc(m.name)}）</h3><div class="muted small">${m.admin?'管理者':'成員'}・記帳${canEditPage('ledger')?'可編輯':'僅閱覽'}・吃飯${canEditPage('meals')?'可編輯':'僅閱覽'}</div></div></div>
+      <button class="btn danger" data-act="logout">登出，換人使用</button>
+      <button class="btn ghost" data-act="close-sheet">關閉</button></div></div>`;
+    return;
+  }
+  if(s.type==='meal'){host.innerHTML=mealSheetHtml(s);return}
+  if(s.type==='line'){
+    host.innerHTML=`<div class="scrim" data-act="close-sheet"><div class="sheet stack" role="dialog" aria-label="傳到 LINE">
+      <h3 style="margin:0">${esc(s.title)}</h3>
+      <p class="muted small" style="margin:0">要不要通知家族 LINE 群組？訊息會長這樣：</p>
+      <div class="lineprev" id="line-text">${esc(s.text)}</div>
+      <a class="btn linebtn" href="https://line.me/R/share?text=${encodeURIComponent(s.text)}" target="_blank" rel="noopener" data-act="line-sent">傳到 LINE 群組</a>
+      <div class="row"><button class="btn small" data-act="line-copy">複製文字</button><span class="spacer"></span><button class="btn ghost" data-act="close-sheet">不用了</button></div>
+    </div></div>`;
+    return;
+  }
+  if(s.type==='notes'){
+    host.innerHTML=`<div class="scrim"><div class="sheet stack" role="dialog" aria-label="新通知">
+      <div class="row"><span class="bell">🔔</span><h3 style="margin:0">新通知</h3></div>
+      <div class="stack" style="gap:10px">${s.items.map(n=>`<div class="note-item ${n.kind}">${n.kind==='conf'?'<span class="nicon">'+SMILE.replace('width="20" height="20"','width="34" height="34"')+'</span>':'<span class="nicon">'+av(n.who)+'</span>'}<div style="min-width:0"><b>${esc(n.title)}</b><div class="small muted">${esc(n.text)}</div></div></div>`).join('')}</div>
+      <div class="row"><span class="spacer"></span>${s.items.some(n=>n.month!==S.month)?`<button class="btn" data-act="notes-go" data-m="${esc(s.items[0].month)}">去看看</button>`:''}<button class="btn sunny" data-act="notes-ok">知道了</button></div>
+    </div></div>`;
+    return;
+  }
+  if(s.type==='delexp'){
+    const e=S.expenses.find(x=>x.id===s.id);
+    host.innerHTML=`<div class="scrim" data-act="close-sheet"><div class="sheet stack" role="dialog">
+      <h3>刪除這筆紀錄？</h3><p style="margin:0">${esc(e?(e.item||''):'')} ${e?money(e.total):''}，刪除後無法復原。</p>
+      <div class="row"><span class="spacer"></span><button class="btn ghost" data-act="close-sheet">取消</button><button class="btn danger" data-act="confirm-del">刪除</button></div></div></div>`;
+    return;
+  }
+  const tot=sheetTotal(s); const div=Math.max(1,parseInt(s.divisor)||1);
+  host.innerHTML=`<div class="scrim" data-act="close-sheet"><form class="sheet stack" id="exp-form" role="dialog" aria-label="記一筆">
+    <h3>${s.id?'編輯紀錄':'記一筆'}</h3>
+    <div class="chips" role="group" aria-label="類別">${CATS.map(c=>`<button type="button" class="chip" data-cat="${c.k}" aria-pressed="${s.cat===c.k}">${c.n}</button>`).join('')}</div>
+    <div class="grid2">
+      <label class="f" for="f-date"><span>日期</span><input type="date" id="f-date" value="${esc(s.date)}" required></label>
+      <label class="f" for="f-payer"><span>誰先付的</span><select id="f-payer">${people().map(m=>`<option value="${esc(m.key)}" ${s.payer===m.key?'selected':''}>${esc(m.label)}（${esc(m.name)}）</option>`).join('')}</select></label>
+    </div>
+    <label class="f" for="f-item"><span>項目</span><input type="text" id="f-item" value="${esc(s.item)}" placeholder="例如：阿里山民宿、幫媽媽買保養品"></label>
+    <label class="f" for="f-price"><span>總價</span><input type="number" inputmode="decimal" id="f-price" value="${esc(s.price)}" min="0" step="any" placeholder="0" required></label>
+    <div class="stack" style="gap:6px">
+      <span class="muted small">誰要分攤（不選＝只記帳，不列入清算）</span>
+      <div class="chips">${people().map(m=>`<button type="button" class="chip" data-part="${esc(m.key)}" aria-pressed="${s.parts.includes(m.key)}">${esc(m.label)}</button>`).join('')}</div>
+    </div>
+    <label class="f" for="f-div"><span>除以幾份（可自己改，例如多算外人一份）</span><input type="number" inputmode="numeric" id="f-div" value="${esc(s.divisor)}" min="1" step="1"></label>
+    <div class="preview" id="f-preview"><span>總價 <b class="num">${money(tot)}</b></span><span>÷ ${div} ＝ 每份 <b class="num">${money(tot/div)}</b></span></div>
+    <label class="f" for="f-note"><span>備註</span><input type="text" id="f-note" value="${esc(s.note)}" placeholder="選填"></label>
+    <div class="err" id="f-err"></div>
+    <div class="row"><span class="spacer"></span><button type="button" class="btn ghost" data-act="close-sheet">取消</button><button type="submit" class="btn primary" id="f-save">儲存</button></div>
+  </form></div>`;
+}
+function readForm(){
+  const s=S.sheet; if(!s||s.type!=='exp')return;
+  const g=id=>document.getElementById(id);
+  s.date=g('f-date').value; s.payer=g('f-payer').value; s.item=g('f-item').value; s.price=g('f-price').value; s.divisor=g('f-div').value; s.note=g('f-note').value;
+}
+function updatePreview(){
+  const s=S.sheet; const el=document.getElementById('f-preview'); if(!el)return;
+  const tot=sheetTotal(s); const div=Math.max(1,parseInt(s.divisor)||1);
+  el.innerHTML=`<span>總價 <b class="num">${money(tot)}</b></span><span>÷ ${div} ＝ 每份 <b class="num">${money(tot/div)}</b></span>`;
+}
+async function saveExp(){
+  readForm(); const s=S.sheet; const err=document.getElementById('f-err');
+  const total=sheetTotal(s);
+  if(!s.date){err.textContent='請選日期';return}
+  if(!(total>0)){err.textContent='請輸入總價';return}
+  const div=Math.max(1,parseInt(s.divisor)||1);
+  if(s.parts.length && div<s.parts.length){err.textContent=`有 ${s.parts.length} 人分攤，份數至少要 ${s.parts.length}`;return}
+  const body={date:s.date,month:s.date.slice(0,7),cat:s.cat,item:s.item.trim(),payer:s.payer,total,
+    parts:s.parts.slice(),divisor:s.parts.length?div:1,note:s.note.trim(),by:S.me,at:Date.now()};
+  const btn=document.getElementById('f-save'); btn.disabled=true;
+  try{
+    const ref=s.id?S.db.doc('expenses/'+s.id):S.db.collection('expenses').doc();
+    if(s.id){const old=S.expenses.find(x=>x.id===s.id); if(old&&old.at) body.at=old.at; body.editedBy=S.me}
+    await ref.set(body);
+    S.sheet=null; renderSheet(); toast(s.id?'已更新':'已記下');
+    if(body.month!==S.month){S.month=body.month;subMonth();render()}
+  }catch(e){err.textContent=dbErr(e);btn.disabled=false}
+}
+
+/* ---------- meals ---------- */
+function mealOf(date,k){return S.meals[date+'_'+k]||{}}
+// defaults: lunch = bento, dinner = at home; only exceptions are stored
+function noBento(x){return x.noBento!=null?!!x.noBento:(!!x.lunch&&x.lunch!=='bento')}
+function dinnerOf(x){if(x.dinner==='home'||x.dinner==='late'||x.dinner==='out')return x.dinner;return x.out?'out':'home'}
+function dinnerOut(x){return dinnerOf(x)==='out'}
+const DIN={home:{t:'在家吃',ic:'🍚',cls:'dinner'},late:{t:'晚點回來吃',ic:'🌙',cls:'late'},out:{t:'不回來吃',ic:'✕',cls:'off'}};
+function isException(x){return noBento(x)||dinnerOf(x)!=='home'||!!x.fruit||!!(x.note&&x.note.trim())}
+function viewMeals(){
+  const canE=canEditPage('meals'); const today=ymd(new Date());
+  const days=[0,1,2,3,4,5,6].map(i=>addDays(S.weekStart,i));
+  if(!days.includes(S.day)) S.day=days.includes(today)?today:days[0];
+  const count=d=>{let b=0,dn=0,fr=0;const lt=[];S.members.forEach(m=>{const x=mealOf(d,m.key);if(!noBento(x))b++;const di=dinnerOf(x);if(di==='out'){if(x.fruit)fr++}else{dn++;fr++;if(di==='late')lt.push(m.label)}});return {b,dn,lt,fr}};
+  const s0=parseYmd(days[0]),s6=parseYmd(days[6]); const c=count(S.day); const sd=parseYmd(S.day);
+  const notes=S.members.map(m=>({m,x:mealOf(S.day,m.key)})).filter(o=>o.x.note);
+  const cell=(m,d)=>{const x=mealOf(d,m.key);const di=dinnerOf(x);const tags=[];
+    if(noBento(x))tags.push('<i class="mk k-nb">不帶</i>');
+    if(di==='out')tags.push('<i class="mk k-out">不回</i>');
+    if(di==='late')tags.push('<i class="mk k-late">晚歸</i>');
+    if(di==='out'&&x.fruit)tags.push('<i class="mk k-fr">🍎</i>');
+    const lbl=m.label+' '+(parseYmd(d).getMonth()+1)+'/'+parseYmd(d).getDate()+'：'+(tags.length?[noBento(x)?'不帶便當':'',di==='out'?'不回來吃晚餐':'',di==='late'?'晚點回來吃':'',di==='out'&&x.fruit?'留水果':''].filter(Boolean).join('、'):'照常');
+    return `<td class="${d===S.day?'sel':''} ${d===today?'td-today':''}"><button class="cellbtn" data-act="cell" data-who="${esc(m.key)}" data-date="${d}" aria-label="${esc(lbl)}">${tags.length?tags.join(''):'<span class="ok">·</span>'}${x.note?'<span class="nd" title="有備註"></span>':''}</button></td>`};
+  return `
+  <div class="mnav">
+    <button class="icon-btn" data-act="week" data-d="-7" aria-label="上一週">‹</button>
+    <div class="mid" style="flex-direction:column;gap:0"><span class="muted small">${s0.getFullYear()} 年 ${s0.getMonth()===s6.getMonth()?(s0.getMonth()+1)+' 月':(s0.getMonth()+1)+'–'+(s6.getMonth()+1)+' 月'}</span><h2>${s0.getMonth()+1}/${s0.getDate()} – ${s6.getMonth()+1}/${s6.getDate()}</h2></div>
+    <button class="icon-btn" data-act="week" data-d="7" aria-label="下一週">›</button>
+  </div>
+  ${days.includes(today)?'':'<div class="row" style="justify-content:center;margin-bottom:8px"><button class="btn small" data-act="thisweek">回到本週</button></div>'}
+  ${canE?'':'<div class="notice" style="margin-bottom:12px">吃飯頁目前為「僅閱覽」。</div>'}
+  <div class="stack">
+    <section class="card mgrid-card">
+      <div class="mgrid-wrap"><table class="mgrid">
+        <thead><tr><th class="corner"></th>${days.map(d=>{const dt=parseYmd(d);return `<th class="${d===S.day?'sel':''} ${d===today?'th-today':''}"><button class="dhead" data-day="${d}" aria-pressed="${d===S.day}"><span class="w">${WD[dt.getDay()]}</span><span class="md">${dt.getMonth()+1}/${dt.getDate()}</span></button></th>`}).join('')}</tr></thead>
+        <tbody>${S.members.map(m=>`<tr><th class="pcol">${av(m.key,'sm')}<span>${esc(m.label)}</span></th>${days.map(d=>cell(m,d)).join('')}</tr>`).join('')}</tbody>
+        <tfoot><tr><th class="pcol tot">便當</th>${days.map(d=>`<td class="tot ${d===S.day?'sel':''}"><b class="num">${count(d).b}</b></td>`).join('')}</tr>
+          <tr><th class="pcol tot">晚餐</th>${days.map(d=>`<td class="tot ${d===S.day?'sel':''}"><b class="num">${count(d).dn}</b></td>`).join('')}</tr></tfoot>
+      </table></div>
+      <div class="legend small muted"><span><i class="mk k-nb">不帶</i>不帶便當</span><span><i class="mk k-out">不回</i>不回來吃</span><span><i class="mk k-late">晚歸</i>晚點回來</span><span><i class="mk k-fr">🍎</i>留水果</span><span><span class="nd" style="position:static;display:inline-block"></span> 有備註</span></div>
+      ${canE?'<p class="small muted" style="margin:6px 0 0">空白＝照常帶便當、在家吃。點格子就能登記或修改。</p>':''}
+    </section>
+
+    <section class="card stack">
+      <div class="row"><h3 style="font-size:20px">${sd.getMonth()+1} 月 ${sd.getDate()} 日（${WD[sd.getDay()]}）要準備</h3></div>
+      <div class="cook"><div class="k bento"><b class="num" style="color:var(--amber)">${c.b}</b><span class="small muted">個便當</span></div><div class="k dinner"><b class="num" style="color:var(--accent)">${c.dn}</b><span class="small muted">人吃晚餐${c.lt.length?`（${c.lt.length} 人晚點）`:''}</span></div><div class="k fruit" style="grid-column:1/-1;padding:8px"><span class="small">🍎 水果 <b class="num" style="display:inline;font-size:20px">${c.fr}</b> 份</span></div></div>
+      ${notes.length?`<div class="stack" style="gap:4px">${notes.map(o=>`<div class="small"><b>${esc(o.m.label)}</b>：${esc(o.x.note)}</div>`).join('')}</div>`:''}
+    </section>
+  </div>`;
+}
+function openMealAt(who,date){
+  const x=mealOf(date,who);
+  S.sheet={type:'meal',who,date,noBento:noBento(x),dinner:dinnerOf(x),fruit:!!x.fruit,note:x.note||''};
+  renderSheet();
+}
+function openMeal(who){
+  const k=who||(S.members.find(m=>m.key===S.me)?S.me:S.members[0].key);
+  const x=mealOf(S.day,k);
+  S.sheet={type:'meal',who:k,date:S.day,noBento:noBento(x),dinner:dinnerOf(x),fruit:!!x.fruit,note:x.note||'',fixed:!!who};
+  renderSheet();
+}
+function loadMealInto(s){const x=mealOf(s.date,s.who);s.noBento=noBento(x);s.dinner=dinnerOf(x);s.fruit=!!x.fruit;s.note=x.note||''}
+function readMealForm(){const s=S.sheet;if(!s||s.type!=='meal')return;const n=document.getElementById('m-note'),d=document.getElementById('m-date');if(n)s.note=n.value;if(d&&d.value)s.date=d.value}
+function mealSheetHtml(s){
+  const opt=(f,v,txt,on)=>`<button type="button" class="chip big ${on?'':''}" data-mf="${f}" data-v="${v}" aria-pressed="${on}">${txt}</button>`;
+  return `<div class="scrim" data-act="close-sheet"><form class="sheet stack" id="meal-form" role="dialog" aria-label="登記吃飯">
+    <h3>${esc(mem(s.who).label)} ${parseYmd(s.date).getMonth()+1}/${parseYmd(s.date).getDate()}（${WD[parseYmd(s.date).getDay()]}）</h3>
+    <div class="stack" style="gap:6px"><span class="muted small">誰</span>
+      <div class="chips">${S.members.map(m=>`<button type="button" class="chip" data-mwho="${esc(m.key)}" aria-pressed="${s.who===m.key}">${esc(m.label)}</button>`).join('')}</div></div>
+    <label class="f" for="m-date"><span>日期</span><input type="date" id="m-date" value="${esc(s.date)}"></label>
+    <div class="stack" style="gap:6px"><span class="muted small">午餐</span>
+      <div class="chips">${opt('noBento','0','🍱 照常帶便當',!s.noBento)}${opt('noBento','1','✕ 不帶便當',s.noBento)}</div></div>
+    <div class="stack" style="gap:6px"><span class="muted small">晚餐</span>
+      <div class="chips">${opt('dinner','home','🍚 照常在家吃',s.dinner==='home')}${opt('dinner','late','⏰ 晚點回來吃',s.dinner==='late')}${opt('dinner','out','🌙 不回來吃',s.dinner==='out')}</div></div>
+    ${s.dinner==='out'?`<div class="stack" style="gap:6px"><span class="muted small">水果（不回來吃預設不留）</span>
+      <div class="chips">${opt('fruit','0','不用留',!s.fruit)}${opt('fruit','1','🍎 幫我留水果',s.fruit)}</div></div>`:''}
+    <label class="f" for="m-note"><span>備註</span><input type="text" id="m-note" value="${esc(s.note)}" placeholder="例如：大約 8 點到家、便當不要辣"></label>
+    <div class="row"><span class="spacer"></span><button type="button" class="btn ghost" data-act="close-sheet">取消</button><button type="submit" class="btn primary" id="m-save">儲存</button></div>
+  </form></div>`;
+}
+async function saveMealSheet(){
+  readMealForm(); const s=S.sheet; const id=s.date+'_'+s.who;
+  const body={date:s.date,member:s.who,noBento:!!s.noBento,dinner:s.dinner,fruit:s.dinner==='out'&&!!s.fruit,note:(s.note||'').trim(),by:S.me,at:Date.now()};
+  const btn=document.getElementById('m-save'); btn.disabled=true;
+  try{
+    if(!isException(body)){await S.db.doc('meals/'+id).delete();delete S.meals[id]}
+    else{await S.db.doc('meals/'+id).set(body);S.meals[id]=body}
+    const label=mem(s.who).label; S.sheet=null; renderSheet();
+    if(s.date!==S.day){S.day=s.date;const ws=mondayOf(parseYmd(s.date));if(ws!==S.weekStart){S.weekStart=ws;subWeek()}}
+    render(); toast(isException(body)?label+' 已登記':label+' 改回照常');
+  }catch(e){toast(dbErr(e));btn.disabled=false}
+}
+async function clearMeal(who){
+  const id=S.day+'_'+who; const prev=S.meals[id]; delete S.meals[id]; render();
+  try{await S.db.doc('meals/'+id).delete();toast(mem(who).label+' 改回照常')}catch(e){S.meals[id]=prev;render();toast(dbErr(e))}
+}
+async function setMeal(who,field,val){
+  const cur=mealOf(S.day,who);
+  const body={date:S.day,member:who,noBento:noBento(cur),dinner:dinnerOf(cur),fruit:!!cur.fruit,note:cur.note||'',by:S.me,at:Date.now()};
+  if(field==='note')body.note=val;
+  else if(field==='dinner'){body.dinner={home:'late',late:'out',out:'home'}[body.dinner]; if(body.dinner!=='out')body.fruit=false}
+  else body[field]=!body[field];
+  S.meals[S.day+'_'+who]=body; if(field!=='note')render();
+  try{await S.db.doc('meals/'+S.day+'_'+who).set(body); if(field==='note')toast('備註已存')}catch(e){toast(dbErr(e));render()}
+}
+
+async function saveSettle(patch,msg){
+  const cur=S.settle||{};
+  const body={month:S.month,confirmed:!!cur.confirmed,confirmedBy:cur.confirmedBy||'',confirmedAt:cur.confirmedAt||0,paid:Object.assign({},cur.paid||{}),paidAt:Object.assign({},cur.paidAt||{}),paidBy:Object.assign({},cur.paidBy||{}),by:S.me,at:Date.now()};
+  Object.assign(body,patch);
+  S.settle=body; render();
+  try{await S.db.doc('settlements/'+S.month).set(body); msg&&toast(msg)}catch(e){toast(dbErr(e))}
+}
+
+function appLink(){try{return location.protocol.indexOf('http')===0&&location.hostname.indexOf('claude')<0?location.href.split('#')[0]:''}catch(e){return ''}}
+function lineMsgConfirm(){
+  const mo=Number(S.month.split('-')[1]); const st=settle(S.expenses);
+  const lines=Object.keys(st.D).map(k=>{const n=st.D[k].net;return mem(k).label+'：'+(n<-0.5?'要給家裡 '+money(-n):n>0.5?'家裡要給她 '+money(n):'剛好打平')});
+  const l=appLink();
+  return '【家庭共享簿】'+mo+' 月帳款已結算 ✅\n'+lines.join('\n')+'\n付款後請到 App 按「確認後按這裡」'+(l?'\n'+l:'');
+}
+function lineMsgPaid(k){
+  const mo=Number(S.month.split('-')[1]); const n=(settle(S.expenses).D[k]||{}).net||0;
+  return '【家庭共享簿】'+mem(k).label+' 已確認 '+mo+' 月款項 ✅'+(n<-0.5?'（'+money(-n)+'）':'');
+}
+function openLine(title,text){S.sheet={type:'line',title,text};renderSheet()}
+
+/* ---------- settings ---------- */
+function viewSettings(){
+  if(!isAdmin())return '';
+  return `<div class="stack">
+    <section class="card stack">
+      <div><h3 style="font-size:18px">誰可以編輯哪一頁</h3><p class="muted small" style="margin:4px 0 0">管理者永遠可以編輯全部。「僅閱覽」的人能看但不能新增或修改。「結算」的人可以勾選女兒已付款、按月底確認。「付款確認」開啟時，女兒即使記帳是「閱覽」，也能按自己的「確認後按這裡」。</p></div>
+      <div class="tablewrap"><table class="mtable"><thead><tr><th>成員</th><th>家庭記帳</th><th>在家吃飯</th><th>結算</th><th>付款確認</th><th>管理者</th><th>密碼</th></tr></thead><tbody>
+      ${people().map(m=>`<tr>
+        <td><div class="row" style="flex-wrap:nowrap">${av(m.key,'sm')}<span style="white-space:nowrap">${esc(m.label)}</span></div></td>
+        ${['ledger','meals'].map(p=>`<td><div class="toggle">${[['edit','編輯'],['view','閱覽']].map(o=>`<button data-perm="${p}" data-who="${esc(m.key)}" data-v="${o[0]}" aria-pressed="${m.admin?o[0]==='edit':((m.perm&&m.perm[p])||'edit')===o[0]}" ${m.admin?'disabled':''}>${o[1]}</button>`).join('')}</div></td>`).join('')}
+        <td><div class="toggle"><button data-settler="${esc(m.key)}" data-v="1" aria-pressed="${!!m.settler}">是</button><button data-settler="${esc(m.key)}" data-v="0" aria-pressed="${!m.settler}">否</button></div></td>
+        <td>${DAUGHTERS.includes(m.key)?`<div class="toggle"><button data-payc="${esc(m.key)}" data-v="1" aria-pressed="${m.payConfirm!==false}">開</button><button data-payc="${esc(m.key)}" data-v="0" aria-pressed="${m.payConfirm===false}">關</button></div>`:'<span class="muted small">—</span>'}</td>
+        <td><div class="toggle"><button data-admin="${esc(m.key)}" data-v="1" aria-pressed="${!!m.admin}">是</button><button data-admin="${esc(m.key)}" data-v="0" aria-pressed="${!m.admin}">否</button></div></td>
+        <td><input class="pin-in num" type="text" inputmode="numeric" maxlength="4" data-keep="1" data-pinfor="${esc(m.key)}" id="pin-${esc(m.key)}" value="${esc(m.code)}" aria-label="${esc(m.label)}的密碼"></td>
+      </tr>`).join('')}</tbody></table></div>
+      <p class="muted small" style="margin:0">密碼改完按 Enter 或點別處就會儲存，必須是 4 位數字。${S.members.filter(m=>m.noLogin).map(m=>esc(m.label)).join('、')}只出現在吃飯登記，不需要登入。</p>
+    </section>
+    <section class="card stack">
+      <label class="f" for="fee-in"><span>每月伙食費（大女兒、小女兒各給）</span><input type="number" inputmode="numeric" id="fee-in" data-keep="1" value="${esc(foodFee())}" min="0" step="100" style="max-width:200px"></label>
+    </section>
+  </div>`;
+}
+async function saveMembers(next,msg,fee){
+  const f=fee!=null?fee:foodFee();
+  try{await S.db.doc('config/family').set({members:next,foodFee:f}); S.members=next; S.foodFee=f; toast(msg||'已儲存'); render()}catch(e){toast(dbErr(e));render()}
+}
+function clone(){return JSON.parse(JSON.stringify(S.members))}
+
+/* ---------- events ---------- */
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest('button,[data-act]'); if(!t)return;
+  if(t.classList.contains('scrim') && ev.target!==t) return;
+  const d=t.dataset;
+  if(d.who && t.classList.contains('who-btn')){S.login={who:d.who,pin:''};renderLogin();return}
+  if(d.pin!=null && !S.me){pinPress(d.pin);return}
+  if(d.tab){S.tab=d.tab;lsSet('fam_tab',d.tab);render();return}
+  if(d.cat&&S.sheet){readForm();S.sheet.cat=d.cat;document.querySelectorAll('[data-cat]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.cat===d.cat));return}
+  if(d.part&&S.sheet){readForm();const s=S.sheet;const i=s.parts.indexOf(d.part);i>=0?s.parts.splice(i,1):s.parts.push(d.part);
+    s.parts.sort((a,b)=>memIdx(a)-memIdx(b));
+    if(!s.divManual){s.divisor=String(Math.max(1,s.parts.length));document.getElementById('f-div').value=s.divisor}
+    t.setAttribute('aria-pressed',s.parts.includes(d.part));updatePreview();return}
+  if(d.paid){if(!canPay(d.paid)||!(S.settle||{}).confirmed)return;const p=Object.assign({},(S.settle||{}).paid||{});p[d.paid]=!p[d.paid];S.popKey=p[d.paid]?d.paid:null;setTimeout(()=>{S.popKey=null},700);
+    const pa=Object.assign({},(S.settle||{}).paidAt||{}),pb=Object.assign({},(S.settle||{}).paidBy||{});pa[d.paid]=p[d.paid]?Date.now():0;pb[d.paid]=p[d.paid]?S.me:'';
+    if(p[d.paid])S.sheet={type:'line',title:mem(d.paid).label+' 已確認 ✅',text:lineMsgPaid(d.paid)};
+    saveSettle({paid:p,paidAt:pa,paidBy:pb},p[d.paid]?mem(d.paid).label+' 已確認':'已取消確認');return}
+  if(d.payc){const n=clone();const m=n.find(x=>x.key===d.payc);m.payConfirm=d.v==='1';saveMembers(n,m.payConfirm?m.label+' 可以自己按付款確認':m.label+' 的付款確認改由結算人代按');return}
+  if(d.settler){const n=clone();const m=n.find(x=>x.key===d.settler);m.settler=d.v==='1';saveMembers(n,m.settler?m.label+' 可以結算':m.label+' 不再負責結算');return}
+  if(d.day){S.day=d.day;render();return}
+  if(d.mwho&&S.sheet&&S.sheet.type==='meal'){readMealForm();S.sheet.who=d.mwho;loadMealInto(S.sheet);renderSheet();return}
+  if(d.mf&&S.sheet&&S.sheet.type==='meal'){readMealForm();const s=S.sheet;if(d.mf==='dinner'){s.dinner=d.v;if(d.v!=='out')s.fruit=false}else s[d.mf]=d.v==='1';renderSheet();return}
+  if(d.perm){const n=clone();const m=n.find(x=>x.key===d.who);m.perm=Object.assign({ledger:'edit',meals:'edit'},m.perm||{});m.perm[d.perm]=d.v;saveMembers(n);return}
+  if(d.admin){const n=clone();const m=n.find(x=>x.key===d.admin);m.admin=d.v==='1';
+    if(!n.some(x=>x.admin)){toast('至少要留一位管理者');return}
+    saveMembers(n, m.admin?m.label+' 設為管理者':m.label+' 不再是管理者');return}
+  switch(d.act){
+    case 'menu': S.sheet={type:'menu'};renderSheet();break;
+    case 'logout': S.me=null;lsSet('fam_me',null);S.sheet=null;renderSheet();S.login={who:null,pin:''};render();break;
+    case 'close-sheet': if(ev.target===t||t.tagName==='BUTTON'){S.sheet=null;renderSheet()}break;
+    case 'add-exp': openExp(null);break;
+    case 'cell': S.day=d.date; if(canEditPage('meals')){render();openMealAt(d.who,d.date)}else render(); break;
+    case 'add-meal': if(canEditPage('meals'))openMeal(null);break;
+    case 'edit-meal': if(canEditPage('meals'))openMeal(d.who);break;
+    case 'clear-meal': if(canEditPage('meals'))clearMeal(d.who);break;
+    case 'edit-exp': openExp(d.id);break;
+    case 'del-exp': S.sheet={type:'delexp',id:d.id};renderSheet();break;
+    case 'confirm-del': {const id=S.sheet.id;S.sheet=null;renderSheet();try{await S.db.doc('expenses/'+id).delete();toast('已刪除')}catch(e){toast(dbErr(e))}break}
+    case 'month': S.month=addMonths(S.month,Number(d.d));subMonth();render();break;
+    case 'week': S.weekStart=addDays(S.weekStart,Number(d.d));S.day=addDays(S.day,Number(d.d));subWeek();render();break;
+    case 'thisweek': S.weekStart=mondayOf(new Date());S.day=ymd(new Date());subWeek();render();break;
+    case 'notes-ok': markSeen(S.sheet.items.map(n=>n.id));S.sheet=null;renderSheet();break;
+    case 'notes-go': markSeen(S.sheet.items.map(n=>n.id));S.sheet=null;renderSheet();S.tab='ledger';if(d.m!==S.month){S.month=d.m;subMonth()}render();break;
+    case 'confirm': if(canSettle()){S.popKey=null;S.sheet={type:'line',title:'帳款已確認 ✅',text:lineMsgConfirm()};saveSettle({confirmed:true,confirmedBy:S.me,confirmedAt:Date.now()},'本月帳款已確認')}break;
+    case 'line-confirm': openLine('通知家族群組',lineMsgConfirm());break;
+    case 'line-sent': setTimeout(()=>{S.sheet=null;renderSheet()},300);break;
+    case 'line-copy': {const txt=S.sheet&&S.sheet.text||'';const done=()=>toast('已複製，可以貼到 LINE');
+      try{navigator.clipboard.writeText(txt).then(done,()=>{const el=document.getElementById('line-text');const rg=document.createRange();rg.selectNodeContents(el);const sel=getSelection();sel.removeAllRanges();sel.addRange(rg);toast('已選取文字，請長按複製')})}catch(e){toast('請長按文字複製')}break}
+    case 'unconfirm': if(canSettle()){saveSettle({confirmed:false,confirmedBy:'',confirmedAt:0,paid:{},paidAt:{},paidBy:{}},'已取消確認，付款勾選也一併清除')}break;
+    case 'save-mnote': {const v=document.getElementById('month-note').value;t.disabled=true;try{await S.db.doc('monthnotes/'+S.month).set({note:v,by:S.me,at:Date.now()});S.monthNote=v;toast('備註已存')}catch(e){toast(dbErr(e))}t.disabled=false;break}
+  }
+});
+document.addEventListener('input',ev=>{
+  const t=ev.target; if(!S.sheet||S.sheet.type!=='exp')return;
+  if(['f-price','f-div'].includes(t.id)){readForm(); if(t.id==='f-div')S.sheet.divManual=true; updatePreview()}
+});
+document.addEventListener('submit',ev=>{if(ev.target.id==='exp-form'){ev.preventDefault();saveExp()}if(ev.target.id==='meal-form'){ev.preventDefault();saveMealSheet()}});
+document.addEventListener('change',ev=>{
+  const t=ev.target;
+  if(t.id==='m-date'&&S.sheet&&S.sheet.type==='meal'){readMealForm();if(S.meals[S.sheet.date+'_'+S.sheet.who])loadMealInto(S.sheet);renderSheet();return}
+  if(t.dataset.mnote){setMeal(t.dataset.mnote,'note',t.value.trim());return}
+  if(t.id==='fee-in'){const v=Math.max(0,Math.round(Number(t.value)||0));saveMembers(clone(),'伙食費已更新為 '+money(v),v);return}
+  if(t.dataset.pinfor){const v=t.value.trim();if(!/^\d{4}$/.test(v)){toast('密碼要是 4 位數字');t.value=mem(t.dataset.pinfor).code;return}
+    const n=clone();n.find(x=>x.key===t.dataset.pinfor).code=v;saveMembers(n,'密碼已更新')}
+});
+document.addEventListener('focusout',ev=>{ if(ev.target.dataset&&ev.target.dataset.keep){setTimeout(()=>{const a=document.activeElement;if(!(a&&a.dataset&&a.dataset.keep))render()},0)} });
+document.addEventListener('keydown',ev=>{
+  if(ev.key==='Escape'&&S.sheet){S.sheet=null;renderSheet()}
+  if(!S.me&&S.login.who&&/^[0-9]$/.test(ev.key)){pinPress(ev.key)}
+  if(!S.me&&S.login.who&&ev.key==='Backspace'){pinPress('del')}
+  if(ev.key==='Enter'&&ev.target.dataset&&(ev.target.dataset.mnote||ev.target.dataset.pinfor||ev.target.id==='fee-in')){ev.target.blur()}
+});
+
+boot();
+})();
+</script>
+
+</body>
+</html>
