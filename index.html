@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="家庭共享簿">
-<meta name="theme-color" content="#faf3e8">
+<meta name="theme-color" content="#fbe9d7">
 <script>
 /* ===== 第 1 步：把 Firebase 網頁應用程式的設定貼在這裡 ===== */
 window.FIREBASE_CONFIG = {
@@ -43,7 +43,7 @@ window.FAMILY_SEED = {"foodFee": 5000, "members": [{"admin": false, "code": "080
 <style>
 /* Layout: one airy column; bright mint + sunshine palette, rounded "sticker" surfaces, pill tabs. */
 :root{
-  --bg:#faf3e8; --surface:#fffdf9; --sunk:#f3e9da; --line:#eadcc7;
+  --bg:#fbe9d7; --surface:#fffaf4; --sunk:#f7e3cf; --line:#efd5bb;
   --fg:#3a2f25; --muted:#86766a; --accent:#08a196; --accent-ink:#ffffff; --accent-soft:#d9f5f1;
   --amber:#b97700; --amber-soft:#fff1c7; --sun:#ffc53d; --red:#e5524a; --red-soft:#ffe4e0; --blue:#2c78ef; --blue-soft:#e0ecff;
   --p1:#3d8bfd; --p2:#ff6aa2; --p3:#ff9a1f; --p4:#8a6cf5; --p5:#2fb36a;
@@ -52,18 +52,6 @@ window.FAMILY_SEED = {"foodFee": 5000, "members": [{"admin": false, "code": "080
   --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --r:18px;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#1d1813; --surface:#27211b; --sunk:#312922; --line:#43392f;
-  --fg:#f4ebe0; --muted:#b9a998; --accent:#3fd6c8; --accent-ink:#06201d; --accent-soft:#123b3b;
-  --amber:#ffcf5c; --amber-soft:#3a3117; --sun:#ffcf5c; --red:#ff8b80; --red-soft:#40211f; --blue:#82b2ff; --blue-soft:#1a2d4a;
-  --p1:#5a9dff; --p2:#ff7fb0; --p3:#ffaa45; --p4:#9d84ff; --p5:#45c47f;
-  --shadow:0 6px 18px rgba(0,0,0,.3); color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#1d1813; --surface:#27211b; --sunk:#312922; --line:#43392f;
-  --fg:#f4ebe0; --muted:#b9a998; --accent:#3fd6c8; --accent-ink:#06201d; --accent-soft:#123b3b;
-  --amber:#ffcf5c; --amber-soft:#3a3117; --sun:#ffcf5c; --red:#ff8b80; --red-soft:#40211f; --blue:#82b2ff; --blue-soft:#1a2d4a;
-  --p1:#5a9dff; --p2:#ff7fb0; --p3:#ffaa45; --p4:#9d84ff; --p5:#45c47f;
-  --shadow:0 6px 18px rgba(0,0,0,.3); color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
 .wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:12px 100px}
