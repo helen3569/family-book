@@ -286,6 +286,9 @@ td.tot.sel{color:var(--accent)}
 .bell{font-size:24px;display:inline-block;animation:ring 1s ease 2}
 @keyframes ring{0%,100%{transform:rotate(0)}20%{transform:rotate(18deg)}40%{transform:rotate(-14deg)}60%{transform:rotate(8deg)}}
 @media (prefers-reduced-motion:reduce){.bell{animation:none}}
+.lineprev{white-space:pre-wrap;background:var(--sunk);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.6;overflow-wrap:anywhere;user-select:text}
+.linebtn{display:block;text-align:center;text-decoration:none;background:#06c755;border-color:#06c755;color:#fff;font-weight:700;padding:12px 16px;font-size:16px}
+.linesm{background:#06c755;border-color:#06c755;color:#fff;font-weight:700}
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 18px;border-radius:999px;font-size:14px;z-index:60}
 </style>
 
@@ -544,7 +547,7 @@ function viewLedger(){
 
     ${done?`<section class="card confirm done">${stampSvg()}<div class="txt stack" style="gap:4px"><h3>${Number(mo)} 月帳款已確認結算</h3>
         <span class="small">${cb?esc(cb.label)+' 於 ':''}${cAt?(cAt.getMonth()+1)+'/'+cAt.getDate()+' ':''}確認帳款沒問題${allPaid?'，兩位女兒都付清了':''}</span>
-        ${canS?'<div><button class="btn ghost small" data-act="unconfirm" style="padding-inline:0">取消確認</button></div>':''}</div></section>`
+        <div class="row" style="gap:6px"><button class="btn small linesm" data-act="line-confirm">傳到 LINE</button>${canS?'<button class="btn ghost small" data-act="unconfirm">取消確認</button>':''}</div></div></section>`
     :`<section class="card confirm"><div class="txt stack" style="gap:4px"><h3 style="font-size:19px">月底確認帳款</h3>
         <span class="muted small">${canS?'下面的明細都核對過、沒問題了，就按確認。確認後兩位女兒就可以付款。':'由'+(who.length?who.map(esc).join('、'):'管理者')+'核對後確認。'}</span></div>
         ${canS?'<button class="btn sunny" data-act="confirm">確認帳款沒問題</button>':''}</section>`}
@@ -598,6 +601,16 @@ function renderSheet(){
     return;
   }
   if(s.type==='meal'){host.innerHTML=mealSheetHtml(s);return}
+  if(s.type==='line'){
+    host.innerHTML=`<div class="scrim" data-act="close-sheet"><div class="sheet stack" role="dialog" aria-label="傳到 LINE">
+      <h3 style="margin:0">${esc(s.title)}</h3>
+      <p class="muted small" style="margin:0">要不要通知家族 LINE 群組？訊息會長這樣：</p>
+      <div class="lineprev" id="line-text">${esc(s.text)}</div>
+      <a class="btn linebtn" href="https://line.me/R/share?text=${encodeURIComponent(s.text)}" target="_blank" rel="noopener" data-act="line-sent">傳到 LINE 群組</a>
+      <div class="row"><button class="btn small" data-act="line-copy">複製文字</button><span class="spacer"></span><button class="btn ghost" data-act="close-sheet">不用了</button></div>
+    </div></div>`;
+    return;
+  }
   if(s.type==='notes'){
     host.innerHTML=`<div class="scrim"><div class="sheet stack" role="dialog" aria-label="新通知">
       <div class="row"><span class="bell">🔔</span><h3 style="margin:0">新通知</h3></div>
@@ -776,6 +789,19 @@ async function saveSettle(patch,msg){
   try{await S.db.doc('settlements/'+S.month).set(body); msg&&toast(msg)}catch(e){toast(dbErr(e))}
 }
 
+function appLink(){try{return location.protocol.indexOf('http')===0&&location.hostname.indexOf('claude')<0?location.href.split('#')[0]:''}catch(e){return ''}}
+function lineMsgConfirm(){
+  const mo=Number(S.month.split('-')[1]); const st=settle(S.expenses);
+  const lines=Object.keys(st.D).map(k=>{const n=st.D[k].net;return mem(k).label+'：'+(n<-0.5?'要給家裡 '+money(-n):n>0.5?'家裡要給她 '+money(n):'剛好打平')});
+  const l=appLink();
+  return '【家庭共享簿】'+mo+' 月帳款已結算 ✅\n'+lines.join('\n')+'\n付款後請到 App 按「確認後按這裡」'+(l?'\n'+l:'');
+}
+function lineMsgPaid(k){
+  const mo=Number(S.month.split('-')[1]); const n=(settle(S.expenses).D[k]||{}).net||0;
+  return '【家庭共享簿】'+mem(k).label+' 已確認 '+mo+' 月款項 ✅'+(n<-0.5?'（'+money(-n)+'）':'');
+}
+function openLine(title,text){S.sheet={type:'line',title,text};renderSheet()}
+
 /* ---------- settings ---------- */
 function viewSettings(){
   if(!isAdmin())return '';
@@ -819,6 +845,7 @@ document.addEventListener('click',async ev=>{
     t.setAttribute('aria-pressed',s.parts.includes(d.part));updatePreview();return}
   if(d.paid){if(!canPay(d.paid)||!(S.settle||{}).confirmed)return;const p=Object.assign({},(S.settle||{}).paid||{});p[d.paid]=!p[d.paid];S.popKey=p[d.paid]?d.paid:null;setTimeout(()=>{S.popKey=null},700);
     const pa=Object.assign({},(S.settle||{}).paidAt||{}),pb=Object.assign({},(S.settle||{}).paidBy||{});pa[d.paid]=p[d.paid]?Date.now():0;pb[d.paid]=p[d.paid]?S.me:'';
+    if(p[d.paid])S.sheet={type:'line',title:mem(d.paid).label+' 已確認 ✅',text:lineMsgPaid(d.paid)};
     saveSettle({paid:p,paidAt:pa,paidBy:pb},p[d.paid]?mem(d.paid).label+' 已確認':'已取消確認');return}
   if(d.payc){const n=clone();const m=n.find(x=>x.key===d.payc);m.payConfirm=d.v==='1';saveMembers(n,m.payConfirm?m.label+' 可以自己按付款確認':m.label+' 的付款確認改由結算人代按');return}
   if(d.settler){const n=clone();const m=n.find(x=>x.key===d.settler);m.settler=d.v==='1';saveMembers(n,m.settler?m.label+' 可以結算':m.label+' 不再負責結算');return}
@@ -846,7 +873,11 @@ document.addEventListener('click',async ev=>{
     case 'thisweek': S.weekStart=mondayOf(new Date());S.day=ymd(new Date());subWeek();render();break;
     case 'notes-ok': markSeen(S.sheet.items.map(n=>n.id));S.sheet=null;renderSheet();break;
     case 'notes-go': markSeen(S.sheet.items.map(n=>n.id));S.sheet=null;renderSheet();S.tab='ledger';if(d.m!==S.month){S.month=d.m;subMonth()}render();break;
-    case 'confirm': if(canSettle()){S.popKey=null;saveSettle({confirmed:true,confirmedBy:S.me,confirmedAt:Date.now()},'本月帳款已確認')}break;
+    case 'confirm': if(canSettle()){S.popKey=null;S.sheet={type:'line',title:'帳款已確認 ✅',text:lineMsgConfirm()};saveSettle({confirmed:true,confirmedBy:S.me,confirmedAt:Date.now()},'本月帳款已確認')}break;
+    case 'line-confirm': openLine('通知家族群組',lineMsgConfirm());break;
+    case 'line-sent': setTimeout(()=>{S.sheet=null;renderSheet()},300);break;
+    case 'line-copy': {const txt=S.sheet&&S.sheet.text||'';const done=()=>toast('已複製，可以貼到 LINE');
+      try{navigator.clipboard.writeText(txt).then(done,()=>{const el=document.getElementById('line-text');const rg=document.createRange();rg.selectNodeContents(el);const sel=getSelection();sel.removeAllRanges();sel.addRange(rg);toast('已選取文字，請長按複製')})}catch(e){toast('請長按文字複製')}break}
     case 'unconfirm': if(canSettle()){saveSettle({confirmed:false,confirmedBy:'',confirmedAt:0,paid:{},paidAt:{},paidBy:{}},'已取消確認，付款勾選也一併清除')}break;
     case 'save-mnote': {const v=document.getElementById('month-note').value;t.disabled=true;try{await S.db.doc('monthnotes/'+S.month).set({note:v,by:S.me,at:Date.now()});S.monthNote=v;toast('備註已存')}catch(e){toast(dbErr(e))}t.disabled=false;break}
   }
