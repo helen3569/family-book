@@ -6,6 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="家庭共享簿">
 <meta name="theme-color" content="#fbe9d7">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <script>
 /* ===== 第 1 步：把 Firebase 網頁應用程式的設定貼在這裡 ===== */
 window.FIREBASE_CONFIG = {
@@ -289,6 +292,14 @@ td.tot.sel{color:var(--accent)}
 .lineprev{white-space:pre-wrap;background:var(--sunk);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.6;overflow-wrap:anywhere;user-select:text}
 .linebtn{display:block;text-align:center;text-decoration:none;background:#06c755;border-color:#06c755;color:#fff;font-weight:700;padding:12px 16px;font-size:16px}
 .linesm{background:#06c755;border-color:#06c755;color:#fff;font-weight:700}
+.exp.simple{display:flex;flex-direction:column;align-items:stretch;gap:4px}
+.srow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.stitle{font-size:16px;overflow-wrap:anywhere;min-width:0}
+.stotal{font-size:17px;white-space:nowrap}
+.mine{font-weight:700;white-space:nowrap}
+.mine.pay{color:var(--red)}
+.mine.zero{color:var(--muted)}
+.scalc{background:var(--sunk);border-radius:10px;padding:6px 10px;line-height:1.5;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 18px;border-radius:999px;font-size:14px;z-index:60}
 </style>
 
@@ -554,9 +565,25 @@ function viewLedger(){
 
     <section class="stack" style="gap:4px">
       <h3 style="font-size:18px;padding-inline:4px">明細</h3>
-      ${dates.length?dates.map(d=>{const dt=parseYmd(d);const sum=groups[d].reduce((a,e)=>a+(Number(e.total)||0),0);return `<div class="daygroup"><div class="dayhead"><span>${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）</span><span class="num">${money(sum)}</span></div>${groups[d].map(e=>expRow(e,canE)).join('')}</div>`}).join('')
+      ${dates.length?dates.map(d=>{const dt=parseYmd(d);const sum=groups[d].reduce((a,e)=>a+(Number(e.total)||0),0);return `<div class="daygroup"><div class="dayhead"><span>${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）</span><span class="num">${money(sum)}</span></div>${groups[d].map(e=>canE?expRow(e,canE):expRowSimple(e)).join('')}</div>`}).join('')
         :`<div class="card empty"><b>這個月還沒有紀錄</b>${canE?'按右下角「記一筆」新增第一筆開銷':'有人登記後就會出現在這裡'}</div>`}
     </section>
+  </div>`;
+}
+function expRowSimple(e){
+  const c=CATS.find(x=>x.k===e.cat)||CATS[CATS.length-1]; const m=mem(e.payer);
+  const t=Number(e.total)||0; const div=Math.max(1,Number(e.divisor)||1); const parts=(e.parts||[]).filter(k=>mem(k));
+  const share=t/div; const inP=parts.includes(S.me); const iPaid=e.payer===S.me;
+  let mine,cls;
+  if(!parts.length){mine='不用分攤';cls='zero'}
+  else if(iPaid){mine=inP?'你先付的，你的份 '+money(share):'你先付的，不用再付';cls='zero'}
+  else if(inP){mine='你要付 '+money(share);cls='pay'}
+  else{mine='不用分攤';cls='zero'}
+  const calc=parts.length?`總價 ${money(t)} ÷ ${div} 份 ＝ 每份 ${money(share)}（${parts.map(k=>mem(k).label).join('、')}${div>parts.length?'＋其他 '+(div-parts.length)+' 份':''}）`:'這筆只記帳，不列入分攤';
+  return `<div class="exp simple">
+    <div class="srow"><b class="stitle">${esc(e.item||c.n)}</b><b class="num stotal">${money(t)}</b></div>
+    <div class="srow small"><span class="muted">${esc(m?m.label:'')} 先付</span><span class="mine ${cls}">${mine}</span></div>
+    <div class="scalc small muted">${esc(calc)}${e.note?'<br>📝 '+esc(e.note):''}</div>
   </div>`;
 }
 function expRow(e,canE){
