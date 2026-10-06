@@ -6,6 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="家庭共享簿">
 <meta name="theme-color" content="#fbe9d7">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <script>
 /* ===== 第 1 步：把 Firebase 網頁應用程式的設定貼在這裡 ===== */
 window.FIREBASE_CONFIG = {
@@ -264,6 +267,7 @@ td.tot.sel{color:var(--accent)}
 /* login */
 .login{max-width:420px;margin:24px auto;display:flex;flex-direction:column;gap:20px;align-items:stretch}
 .login h1{font-size:32px;text-align:center}
+.house{width:min(240px,70vw);height:auto;display:block}
 .who-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .who-btn{border:0;background:var(--surface);border-radius:18px;padding:12px 4px;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:var(--f-display);font-size:17px;box-shadow:var(--shadow)}
 .who-btn small{font-family:var(--f-body);font-size:12px;color:var(--muted)}
@@ -289,6 +293,14 @@ td.tot.sel{color:var(--accent)}
 .lineprev{white-space:pre-wrap;background:var(--sunk);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.6;overflow-wrap:anywhere;user-select:text}
 .linebtn{display:block;text-align:center;text-decoration:none;background:#06c755;border-color:#06c755;color:#fff;font-weight:700;padding:12px 16px;font-size:16px}
 .linesm{background:#06c755;border-color:#06c755;color:#fff;font-weight:700}
+.exp.simple{display:flex;flex-direction:column;align-items:stretch;gap:4px}
+.srow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.stitle{font-size:16px;overflow-wrap:anywhere;min-width:0}
+.stotal{font-size:17px;white-space:nowrap}
+.mine{font-weight:700;white-space:nowrap}
+.mine.pay{color:var(--red)}
+.mine.zero{color:var(--muted)}
+.scalc{background:var(--sunk);border-radius:10px;padding:6px 10px;line-height:1.5;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 18px;border-radius:999px;font-size:14px;z-index:60}
 </style>
 
@@ -459,31 +471,58 @@ function render(){
   if(S.sheet) renderSheet();
 }
 
+function personSvg(x,h,col,hair,hairCol){
+  const foot=184, bw=h*0.19, top=foot-h*0.6, r=h*0.17, cy=top-r+3, skin='#ffd9b8';
+  let hairBack='',hairTop='';
+  if(hair==='long')hairBack=`<rect x="${x-r-2}" y="${cy-2}" width="${2*r+4}" height="${r*1.9}" rx="${r*0.6}" fill="${hairCol}"/>`;
+  if(hair==='pig')hairBack=`<circle cx="${x-r-2}" cy="${cy+r*0.3}" r="${r*0.45}" fill="${hairCol}"/><circle cx="${x+r+2}" cy="${cy+r*0.3}" r="${r*0.45}" fill="${hairCol}"/>`;
+  if(hair==='bun')hairBack=`<circle cx="${x}" cy="${cy-r-1}" r="${r*0.45}" fill="${hairCol}"/>`;
+  hairTop=`<path d="M${x-r} ${cy} A${r} ${r} 0 0 1 ${x+r} ${cy} Q${x} ${cy-r*0.35} ${x-r} ${cy}Z" fill="${hairCol}"/>`;
+  return `<g>
+    <rect x="${x-bw}" y="${top}" width="${2*bw}" height="${foot-top}" rx="${bw*0.8}" style="fill:${col}"/>
+    ${hairBack}<circle cx="${x}" cy="${cy}" r="${r}" fill="${skin}"/>${hairTop}
+    <circle cx="${x-r*0.35}" cy="${cy+r*0.1}" r="${Math.max(1.2,r*0.1)}" fill="#3a2f25"/><circle cx="${x+r*0.35}" cy="${cy+r*0.1}" r="${Math.max(1.2,r*0.1)}" fill="#3a2f25"/>
+    <path d="M${x-r*0.3} ${cy+r*0.42} Q${x} ${cy+r*0.7} ${x+r*0.3} ${cy+r*0.42}" fill="none" stroke="#3a2f25" stroke-width="1.4" stroke-linecap="round"/>
+    <ellipse cx="${x-r*0.6}" cy="${cy+r*0.4}" rx="${r*0.18}" ry="${r*0.11}" fill="#ff8fb5" opacity=".6"/><ellipse cx="${x+r*0.6}" cy="${cy+r*0.4}" rx="${r*0.18}" ry="${r*0.11}" fill="#ff8fb5" opacity=".6"/>
+  </g>`;
+}
+function houseSvg(){
+  return `<svg class="house" viewBox="0 0 240 205" role="img" aria-label="一家四口的小房子">
+    <rect x="160" y="30" width="20" height="40" rx="3" fill="#c9773a"/>
+    <rect x="38" y="88" width="164" height="104" rx="10" fill="#fffaf4" stroke="#c9773a" stroke-width="5"/>
+    <path d="M22 98 L120 22 L218 98" fill="none" stroke="#c9773a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 92 L120 33 L196 92Z" fill="#ffc896"/>
+    <circle cx="120" cy="68" r="11" fill="#fffaf4" stroke="#c9773a" stroke-width="3"/>
+    <path d="M120 74 c-5-3-8-6-8-9a3.4 3.4 0 0 1 8-1.6 3.4 3.4 0 0 1 8 1.6c0 3-3 6-8 9z" fill="#ff6aa2"/>
+    <rect x="44" y="184" width="152" height="4" rx="2" fill="#f2d3b4"/>
+    ${personSvg(72,82,'var(--p1)','short','#4a3426')}
+    ${personSvg(106,74,'var(--p3)','bun','#5a3a28')}
+    ${personSvg(140,60,'var(--p2)','long','#5a3a28')}
+    ${personSvg(169,50,'var(--p4)','pig','#5a3a28')}
+  </svg>`;
+}
 function renderLogin(){
-  const L=S.login; const who=L.who?mem(L.who):null;
+  const L=S.login;
   $app.innerHTML = `
   <div class="login">
-    <div class="stack" style="align-items:center;gap:6px">
-      <span class="logo" style="width:56px;height:56px;border-radius:18px;background:var(--sun);display:grid;place-items:center;transform:rotate(-6deg)">${LOGO}</span>
+    <div class="stack" style="align-items:center;gap:4px">
+      ${houseSvg()}
       <h1>家庭共享簿</h1>
-      <p class="muted" style="margin:0">先選你是誰，再輸入密碼</p>
+      <p class="muted" style="margin:0">輸入你的 4 位數密碼</p>
     </div>
-    <div class="who-grid">${people().map(m=>`<button class="who-btn" data-who="${esc(m.key)}" aria-pressed="${L.who===m.key}">${av(m.key)}<span>${esc(m.name)}</span><small>${esc(m.label)}</small></button>`).join('')}</div>
-    ${who?`
-      <div class="dots" id="dots">${[0,1,2,3].map(i=>`<i class="${i<L.pin.length?'on':''}"></i>`).join('')}</div>
-      <div class="err" id="err" aria-live="polite">${esc(L.err||'')}</div>
-      <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-pin="${n}">${n}</button>`).join('')}<button class="fn" data-pin="clr">清除</button><button data-pin="0">0</button><button class="fn" data-pin="del">刪除</button></div>
-      <p class="muted small" style="text-align:center;margin:0">登入後會一直保持登入，不會自動登出</p>
-    `:''}
+    <div class="dots" id="dots">${[0,1,2,3].map(i=>`<i class="${i<L.pin.length?'on':''}"></i>`).join('')}</div>
+    <div class="err" id="err" aria-live="polite">${esc(L.err||'')}</div>
+    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-pin="${n}">${n}</button>`).join('')}<button class="fn" data-pin="clr">清除</button><button data-pin="0">0</button><button class="fn" data-pin="del">刪除</button></div>
+    <p class="muted small" style="text-align:center;margin:0">登入後會一直保持登入，不會自動登出</p>
   </div>`;
 }
 function pinPress(v){
-  const L=S.login; if(!L.who)return;
+  const L=S.login;
   if(v==='clr')L.pin=''; else if(v==='del')L.pin=L.pin.slice(0,-1); else if(L.pin.length<4)L.pin+=v;
   if(L.pin.length===4){
-    const m=mem(L.who);
-    if(m && !m.noLogin && String(m.code)===L.pin){S.me=m.key;lsSet('fam_me',m.key);S.login={who:null,pin:''};render();toast(m.label+'，歡迎回來');return}
-    L.pin=''; L.err='密碼不對，再試一次'; renderLogin();
+    const hits=people().filter(m=>String(m.code)===L.pin);
+    if(hits.length===1){const m=hits[0];S.me=m.key;lsSet('fam_me',m.key);S.login={who:null,pin:''};render();toast(m.label+'，歡迎回來');return}
+    L.pin=''; L.err=hits.length>1?'這組密碼有兩個人共用，請管理者改成不同的密碼':'密碼不對，再試一次'; renderLogin();
     const d=document.getElementById('dots'); d&&d.classList.add('shake'); return;
   }
   L.err=''; renderLogin();
@@ -554,9 +593,25 @@ function viewLedger(){
 
     <section class="stack" style="gap:4px">
       <h3 style="font-size:18px;padding-inline:4px">明細</h3>
-      ${dates.length?dates.map(d=>{const dt=parseYmd(d);const sum=groups[d].reduce((a,e)=>a+(Number(e.total)||0),0);return `<div class="daygroup"><div class="dayhead"><span>${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）</span><span class="num">${money(sum)}</span></div>${groups[d].map(e=>expRow(e,canE)).join('')}</div>`}).join('')
+      ${dates.length?dates.map(d=>{const dt=parseYmd(d);const sum=groups[d].reduce((a,e)=>a+(Number(e.total)||0),0);return `<div class="daygroup"><div class="dayhead"><span>${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）</span><span class="num">${money(sum)}</span></div>${groups[d].map(e=>canE?expRow(e,canE):expRowSimple(e)).join('')}</div>`}).join('')
         :`<div class="card empty"><b>這個月還沒有紀錄</b>${canE?'按右下角「記一筆」新增第一筆開銷':'有人登記後就會出現在這裡'}</div>`}
     </section>
+  </div>`;
+}
+function expRowSimple(e){
+  const c=CATS.find(x=>x.k===e.cat)||CATS[CATS.length-1]; const m=mem(e.payer);
+  const t=Number(e.total)||0; const div=Math.max(1,Number(e.divisor)||1); const parts=(e.parts||[]).filter(k=>mem(k));
+  const share=t/div; const inP=parts.includes(S.me); const iPaid=e.payer===S.me;
+  let mine,cls;
+  if(!parts.length){mine='不用分攤';cls='zero'}
+  else if(iPaid){mine=inP?'你先付的，你的份 '+money(share):'你先付的，不用再付';cls='zero'}
+  else if(inP){mine='你要付 '+money(share);cls='pay'}
+  else{mine='不用分攤';cls='zero'}
+  const calc=parts.length?`總價 ${money(t)} ÷ ${div} 份 ＝ 每份 ${money(share)}（${parts.map(k=>mem(k).label).join('、')}${div>parts.length?'＋其他 '+(div-parts.length)+' 份':''}）`:'這筆只記帳，不列入分攤';
+  return `<div class="exp simple">
+    <div class="srow"><b class="stitle">${esc(e.item||c.n)}</b><b class="num stotal">${money(t)}</b></div>
+    <div class="srow small"><span class="muted">${esc(m?m.label:'')} 先付</span><span class="mine ${cls}">${mine}</span></div>
+    <div class="scalc small muted">${esc(calc)}${e.note?'<br>📝 '+esc(e.note):''}</div>
   </div>`;
 }
 function expRow(e,canE){
@@ -893,13 +948,14 @@ document.addEventListener('change',ev=>{
   if(t.dataset.mnote){setMeal(t.dataset.mnote,'note',t.value.trim());return}
   if(t.id==='fee-in'){const v=Math.max(0,Math.round(Number(t.value)||0));saveMembers(clone(),'伙食費已更新為 '+money(v),v);return}
   if(t.dataset.pinfor){const v=t.value.trim();if(!/^\d{4}$/.test(v)){toast('密碼要是 4 位數字');t.value=mem(t.dataset.pinfor).code;return}
+    if(people().some(m=>m.key!==t.dataset.pinfor&&String(m.code)===v)){toast('這組密碼已經有人用了，請換一組');t.value=mem(t.dataset.pinfor).code;return}
     const n=clone();n.find(x=>x.key===t.dataset.pinfor).code=v;saveMembers(n,'密碼已更新')}
 });
 document.addEventListener('focusout',ev=>{ if(ev.target.dataset&&ev.target.dataset.keep){setTimeout(()=>{const a=document.activeElement;if(!(a&&a.dataset&&a.dataset.keep))render()},0)} });
 document.addEventListener('keydown',ev=>{
   if(ev.key==='Escape'&&S.sheet){S.sheet=null;renderSheet()}
-  if(!S.me&&S.login.who&&/^[0-9]$/.test(ev.key)){pinPress(ev.key)}
-  if(!S.me&&S.login.who&&ev.key==='Backspace'){pinPress('del')}
+  if(!S.me&&S.members&&S.members.length&&/^[0-9]$/.test(ev.key)){pinPress(ev.key)}
+  if(!S.me&&S.members&&S.members.length&&ev.key==='Backspace'){pinPress('del')}
   if(ev.key==='Enter'&&ev.target.dataset&&(ev.target.dataset.mnote||ev.target.dataset.pinfor||ev.target.id==='fee-in')){ev.target.blur()}
 });
 
